@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
 
 const NAV = [
-  { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard',   perm: 'articles.read' },
+  { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard',   perm: 'dashboard.read' },
   { to: '/catalogue',  icon: Package,      label: 'Catalogue',   perm: 'articles.read' },
   { to: '/depot',      icon: Warehouse,    label: 'Dépôt',       perm: 'depot.read' },
   { to: '/inventaire', icon: ClipboardList,label: 'Inventaire',  perm: 'inventory.read' },
