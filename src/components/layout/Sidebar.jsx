@@ -1,14 +1,15 @@
 import { NavLink } from 'react-router-dom';
-import { Package, Warehouse, ClipboardList, Settings, History, LogOut } from 'lucide-react';
+import { Package, Warehouse, ClipboardList, Settings, History, LogOut, CalendarDays } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
 
 const NAV = [
-  { to: '/catalogue', icon: Package,       label: 'Catalogue',  perm: 'articles.read' },
-  { to: '/depot',     icon: Warehouse,      label: 'Dépôt',      perm: 'depot.read' },
-  { to: '/inventaire',icon: ClipboardList,  label: 'Inventaire', perm: 'inventory.read' },
-  { to: '/historique',icon: History,        label: 'Historique', perm: 'historique.read' },
-  { to: '/parametres',icon: Settings,       label: 'Paramètres', perm: 'settings.read' },
+  { to: '/catalogue',  icon: Package,      label: 'Catalogue',   perm: 'articles.read' },
+  { to: '/depot',      icon: Warehouse,    label: 'Dépôt',       perm: 'depot.read' },
+  { to: '/inventaire', icon: ClipboardList,label: 'Inventaire',  perm: 'inventory.read' },
+  { to: '/evenements', icon: CalendarDays, label: 'Événements',  perm: 'events.read' },
+  { to: '/historique', icon: History,      label: 'Historique',  perm: 'historique.read' },
+  { to: '/parametres', icon: Settings,     label: 'Paramètres',  perm: 'settings.read' },
 ];
 
 const Sidebar = ({ onClose }) => {

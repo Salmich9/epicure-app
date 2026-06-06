@@ -59,6 +59,15 @@ h1, h2, h3, .font-display {
   font-family: 'Cormorant Garamond', Georgia, serif;
 }
 
+/* ============================================================
+   IMPRESSION
+   ============================================================ */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+  #bon-print { position: static; overflow: visible; }
+}
+
 /* Focus visible accessible */
 :focus-visible {
   outline: 2px solid var(--color-primary);
