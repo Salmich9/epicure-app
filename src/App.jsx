@@ -4,6 +4,7 @@ import AppLayout from './components/layout/AppLayout';
 import { PageLoader } from './components/ui/Spinner';
 
 import Login      from './pages/Login';
+import Dashboard  from './pages/Dashboard';
 import Catalogue  from './pages/Catalogue';
 import Depot      from './pages/Depot';
 import Inventaire from './pages/Inventaire';
@@ -23,7 +24,7 @@ const ProtectedRoute = ({ children }) => {
 const GuestRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <PageLoader />;
-  if (user)    return <Navigate to="/catalogue" replace />;
+  if (user)    return <Navigate to="/dashboard" replace />;
   return children;
 };
 
@@ -41,7 +42,8 @@ const AppRoutes = () => (
         </ProtectedRoute>
       }
     >
-      <Route index element={<Navigate to="/catalogue" replace />} />
+      <Route index element={<Navigate to="/dashboard" replace />} />
+      <Route path="dashboard"  element={<Dashboard />} />
       <Route path="catalogue"  element={<Catalogue />} />
       <Route path="depot"      element={<Depot />} />
       <Route path="inventaire" element={<Inventaire />} />

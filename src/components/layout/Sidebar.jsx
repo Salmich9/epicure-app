@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom';
-import { Package, Warehouse, ClipboardList, Settings, History, LogOut, CalendarDays } from 'lucide-react';
+import { LayoutDashboard, Package, Warehouse, ClipboardList, Settings, History, LogOut, CalendarDays } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
 
 const NAV = [
+  { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard',   perm: 'articles.read' },
   { to: '/catalogue',  icon: Package,      label: 'Catalogue',   perm: 'articles.read' },
   { to: '/depot',      icon: Warehouse,    label: 'Dépôt',       perm: 'depot.read' },
   { to: '/inventaire', icon: ClipboardList,label: 'Inventaire',  perm: 'inventory.read' },
