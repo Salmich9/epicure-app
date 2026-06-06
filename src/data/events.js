@@ -118,6 +118,40 @@ export const addWithdrawal = async ({ eventId, articleId, quantity, note, actorI
   return data;
 };
 
+// ── Retours (stock_movements type = 'retour' ou 'perte') ─────
+
+export const fetchEventReturns = async (eventId) => {
+  const { data, error } = await supabase
+    .from('stock_movements')
+    .select(`
+      id, quantity, type, note, created_at,
+      articles:article_id (
+        id, name, last_purchase_price,
+        categories:category_id ( id, name, sort_order ),
+        units:unit_id ( id, name, abbreviation )
+      ),
+      users:created_by ( full_name )
+    `)
+    .eq('reference_type', 'event')
+    .eq('reference_id', eventId)
+    .in('type', ['retour', 'perte'])
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data;
+};
+
+// Valide les retours via RPC (atomique)
+// returns = [{ article_id, returned_qty, ecart }]
+export const validateEventReturns = async (eventId, returns, actorId) => {
+  const { data, error } = await supabase.rpc('validate_event_returns', {
+    p_event_id: eventId,
+    p_user_id:  actorId,
+    p_returns:  returns,
+  });
+  if (error) throw error;
+  return data;
+};
+
 export const deleteWithdrawal = async (movementId, actorId) => {
   // On peut annuler un prélèvement en le supprimant (tant que l'event n'est pas clôturé)
   const { error } = await supabase.from('stock_movements').delete().eq('id', movementId);
