@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CheckCircle2, Circle, ChevronLeft, ChevronRight, Save, Camera, X } from 'lucide-react';
+import { CheckCircle2, Circle, ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { BRIEFING_SECTIONS, isVisible, sectionStatus } from '../../data/briefingConfig';
-import { fetchBriefing, saveBriefingAnswers, uploadBriefingPhoto } from '../../data/briefing';
+import { fetchBriefing, saveBriefingAnswers } from '../../data/briefing';
 import { cn } from '../../lib/utils';
 import { PageLoader } from '../ui/Spinner';
 
@@ -95,60 +95,15 @@ const MultiSelect = ({ question, value, onChange }) => {
   );
 };
 
-const MediaInput = ({ question, value, onChange, eventId }) => {
-  const [uploading, setUploading] = useState(false);
-
-  const handleFile = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const url = await uploadBriefingPhoto(eventId, question.key, file);
-      onChange(url);
-      toast.success('Photo uploadée');
-    } catch {
-      toast.error('Upload échoué — vérifiez que le bucket "briefing-photos" existe dans Supabase Storage');
-    } finally {
-      setUploading(false);
-      e.target.value = '';
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      {value && (
-        <div className="relative w-fit">
-          <img src={value} alt="preview" className="h-32 rounded-[var(--radius-md)] object-cover border border-[var(--color-border)]" />
-          <button
-            type="button"
-            onClick={() => onChange('')}
-            className="absolute -top-2 -right-2 bg-white rounded-full border border-[var(--color-border)] p-0.5 text-[var(--color-text-muted)] hover:text-red-500"
-          >
-            <X size={12} />
-          </button>
-        </div>
-      )}
-      <label className={cn(
-        'inline-flex items-center gap-2 px-4 py-2 rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] text-sm text-[var(--color-text-muted)] cursor-pointer hover:border-primary/50 hover:text-primary transition-colors w-fit',
-        uploading && 'opacity-50 pointer-events-none'
-      )}>
-        <Camera size={16} />
-        {uploading ? 'Upload en cours…' : value ? 'Remplacer la photo' : 'Ajouter une photo'}
-        <input type="file" accept="image/*" className="hidden" onChange={handleFile} />
-      </label>
-    </div>
-  );
-};
 
 // ── Renderer d'une question ───────────────────────────────────
 
-const QuestionField = ({ question, value, onChange, eventId }) => {
+const QuestionField = ({ question, value, onChange }) => {
   switch (question.type) {
     case 'text':         return <TextInput     question={question} value={value} onChange={onChange} />;
     case 'number':       return <NumberInput   question={question} value={value} onChange={onChange} />;
     case 'select_one':   return <SelectOne     question={question} value={value} onChange={onChange} />;
     case 'multi_select': return <MultiSelect   question={question} value={value} onChange={onChange} />;
-    case 'media':        return <MediaInput    question={question} value={value} onChange={onChange} eventId={eventId} />;
     default:             return <TextInput     question={question} value={value} onChange={onChange} />;
   }
 };
@@ -272,7 +227,6 @@ const BriefingForm = ({ eventId }) => {
                 question={question}
                 value={answers[question.key]}
                 onChange={(val) => setAnswer(question.key, val)}
-                eventId={eventId}
               />
             </div>
           ))}

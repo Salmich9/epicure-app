@@ -39,17 +39,3 @@ export const saveBriefingAnswers = async (eventId, sectionAnswers) => {
   if (error) throw error;
 };
 
-// Upload une photo dans le bucket Supabase Storage "briefing-photos".
-// Retourne l'URL publique.
-export const uploadBriefingPhoto = async (eventId, questionKey, file) => {
-  const ext  = file.name.split('.').pop();
-  const path = `${eventId}/${questionKey}/${Date.now()}.${ext}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from('briefing-photos')
-    .upload(path, file, { upsert: true });
-  if (uploadError) throw uploadError;
-
-  const { data } = supabase.storage.from('briefing-photos').getPublicUrl(path);
-  return data.publicUrl;
-};
