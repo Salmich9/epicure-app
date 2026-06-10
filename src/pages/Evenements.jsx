@@ -211,67 +211,167 @@ const BonRetour = ({ event, responsibles, aggregated, onClose }) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// MODAL PRÉLÈVEMENT
+// MODAL PRÉLÈVEMENT — panier pré-chargé (tout le stock > 0)
 // ─────────────────────────────────────────────────────────────
-const WithdrawalModal = ({ open, onClose, onSave, articles, stock }) => {
-  const [articleId, setArticleId] = useState('');
-  const [quantity,  setQuantity]  = useState('');
-  const [note,      setNote]      = useState('');
-  const [loading,   setLoading]   = useState(false);
-  const [search,    setSearch]    = useState('');
+const WithdrawalModal = ({ open, onClose, onSave, stock }) => {
+  const [basket,  setBasket]  = useState([]);  // [{ article, available, qty, note }]
+  const [search,  setSearch]  = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const stockMap = useMemo(() => { const m = {}; stock.forEach((s) => { m[s.article_id] = s; }); return m; }, [stock]);
-  const filtered = useMemo(() => articles.filter((a) => a.name.toLowerCase().includes(search.toLowerCase())), [articles, search]);
-  const selectedArticle = articles.find((a) => a.id === articleId);
-  const availableQty = selectedArticle ? Number(stockMap[selectedArticle.id]?.quantity ?? 0) : 0;
+  // Initialise le panier à chaque ouverture
+  useEffect(() => {
+    if (!open) return;
+    const items = stock
+      .filter((s) => Number(s.quantity) > 0 && s.active)
+      .sort((a, b) => (a.categories?.sort_order ?? 99) - (b.categories?.sort_order ?? 99))
+      .map((s) => ({
+        article:   s,
+        available: Number(s.quantity),
+        qty:       '',
+        note:      '',
+      }));
+    setBasket(items);
+    setSearch('');
+  }, [open, stock]);
 
-  const reset = () => { setArticleId(''); setQuantity(''); setNote(''); setSearch(''); };
+  const setQty  = (idx, val) => setBasket((b) => b.map((r, i) => i === idx ? { ...r, qty: val }  : r));
+  const setNote = (idx, val) => setBasket((b) => b.map((r, i) => i === idx ? { ...r, note: val } : r));
+  const remove  = (idx)      => setBasket((b) => b.filter((_, i) => i !== idx));
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!articleId) { toast.error('Sélectionnez un article'); return; }
-    const qty = parseFloat(quantity);
-    if (!qty || qty <= 0) { toast.error('Quantité invalide'); return; }
-    if (qty > availableQty) { toast.error(`Stock insuffisant (disponible : ${formatQty(availableQty)})`); return; }
+  // Lignes visibles selon la recherche
+  const visible = useMemo(() =>
+    basket.map((r, i) => ({ ...r, _idx: i }))
+          .filter((r) => r.article.name.toLowerCase().includes(search.toLowerCase())),
+    [basket, search]
+  );
+
+  // Groupement par catégorie (sur les lignes visibles)
+  const byCategory = useMemo(() => {
+    const map = {};
+    visible.forEach((r) => {
+      const cid = r.article.categories?.id ?? 'x';
+      if (!map[cid]) map[cid] = { cat: r.article.categories, rows: [] };
+      map[cid].rows.push(r);
+    });
+    return Object.values(map).sort((a, b) => (a.cat?.sort_order ?? 99) - (b.cat?.sort_order ?? 99));
+  }, [visible]);
+
+  const toSubmit = basket.filter((r) => parseFloat(r.qty) > 0);
+
+  const handleSubmit = async () => {
+    // Validation
+    for (const r of toSubmit) {
+      const qty = parseFloat(r.qty);
+      if (qty > r.available) {
+        toast.error(`Stock insuffisant pour "${r.article.name}" (dispo : ${formatQty(r.available)})`);
+        return;
+      }
+    }
+    if (toSubmit.length === 0) { toast.error('Aucune quantité saisie'); return; }
     setLoading(true);
-    try { await onSave({ articleId, quantity: qty, note }); toast.success('Prélèvement enregistré'); reset(); }
-    catch (e) { toast.error(e.message || 'Erreur'); }
-    finally { setLoading(false); }
+    try {
+      await onSave(toSubmit.map((r) => ({ articleId: r.article.article_id, quantity: parseFloat(r.qty), note: r.note })));
+      toast.success(`${toSubmit.length} prélèvement${toSubmit.length > 1 ? 's' : ''} enregistré${toSubmit.length > 1 ? 's' : ''}`);
+      onClose();
+    } catch (e) {
+      toast.error(e.message || 'Erreur');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <Modal open={open} onClose={() => { reset(); onClose(); }} title="Ajouter un prélèvement" size="md">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium">Article *</label>
-          <input className="h-11 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Rechercher un article…" value={search} onChange={(e) => { setSearch(e.target.value); setArticleId(''); }} />
-          {search && filtered.length > 0 && !articleId && (
-            <div className="border border-[var(--color-border)] rounded-[var(--radius-md)] bg-white max-h-48 overflow-y-auto shadow-md">
-              {filtered.map((a) => {
-                const qty = Number(stockMap[a.id]?.quantity ?? 0);
+    <Modal open={open} onClose={onClose} title="Prélèvement" size="xl">
+      <div className="flex flex-col gap-3" style={{ maxHeight: '70vh' }}>
+        {/* Barre de recherche + compteur */}
+        <div className="flex items-center gap-3">
+          <input
+            className="flex-1 h-10 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            placeholder="Filtrer un article…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <span className="text-xs text-[var(--color-text-muted)] whitespace-nowrap">
+            {toSubmit.length} article{toSubmit.length > 1 ? 's' : ''} sélectionné{toSubmit.length > 1 ? 's' : ''}
+          </span>
+        </div>
+
+        {/* Tableau scrollable */}
+        <div className="overflow-y-auto flex-1 border border-[var(--color-border)] rounded-[var(--radius-md)]" style={{ maxHeight: '52vh' }}>
+          {byCategory.length === 0 && (
+            <p className="text-sm text-center text-[var(--color-text-faint)] py-8">Aucun article en stock.</p>
+          )}
+          {byCategory.map(({ cat, rows }) => (
+            <div key={cat?.id ?? 'x'}>
+              {/* En-tête catégorie */}
+              <div className="sticky top-0 bg-warm-50 border-b border-[var(--color-border)] px-3 py-1.5 z-10">
+                <span className="text-xs font-semibold text-primary uppercase tracking-wide">{cat?.name ?? '—'}</span>
+              </div>
+              {rows.map((r) => {
+                const hasQty = parseFloat(r.qty) > 0;
                 return (
-                  <button key={a.id} type="button" onClick={() => { setArticleId(a.id); setSearch(a.name); }} className="w-full text-left px-3 py-2.5 hover:bg-warm-50 flex items-center justify-between border-b border-[var(--color-border)] last:border-0">
-                    <div><p className="text-sm font-medium">{a.name}</p><p className="text-xs text-[var(--color-text-muted)]">{a.categories?.name} · {a.units?.name}</p></div>
-                    <span className={`text-xs font-medium ${qty <= 0 ? 'text-red-500' : 'text-primary'}`}>{formatQty(qty)} {a.units?.abbreviation}</span>
-                  </button>
+                  <div key={r._idx} className={cn(
+                    'flex items-center gap-2 px-3 py-2.5 border-b border-[var(--color-border)] last:border-0',
+                    hasQty ? 'bg-primary-50/40' : 'hover:bg-warm-50/50'
+                  )}>
+                    {/* Nom + stock dispo */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[var(--color-text)] truncate">{r.article.name}</p>
+                      <p className="text-xs text-[var(--color-text-muted)]">
+                        Dispo : <span className="font-medium">{formatQty(r.available)} {r.article.units?.abbreviation}</span>
+                      </p>
+                    </div>
+                    {/* Input quantité */}
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.001"
+                      max={r.available}
+                      value={r.qty}
+                      onChange={(e) => setQty(r._idx, e.target.value)}
+                      placeholder="0"
+                      className={cn(
+                        'w-24 h-9 text-right px-2 rounded-[var(--radius-sm)] border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30',
+                        parseFloat(r.qty) > r.available
+                          ? 'border-red-400 bg-red-50'
+                          : hasQty
+                          ? 'border-primary/50 bg-white'
+                          : 'border-[var(--color-border)] bg-white'
+                      )}
+                    />
+                    <span className="text-xs text-[var(--color-text-muted)] w-6 flex-shrink-0">{r.article.units?.abbreviation}</span>
+                    {/* Note */}
+                    <input
+                      type="text"
+                      value={r.note}
+                      onChange={(e) => setNote(r._idx, e.target.value)}
+                      placeholder="Note…"
+                      className="hidden md:block w-32 h-9 px-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+                    />
+                    {/* Supprimer la ligne */}
+                    <button
+                      type="button"
+                      onClick={() => remove(r._idx)}
+                      className="p-1.5 text-[var(--color-text-faint)] hover:text-red-400 flex-shrink-0"
+                      title="Retirer du panier"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
                 );
               })}
             </div>
-          )}
-          {articleId && selectedArticle && (
-            <div className="flex items-center justify-between px-3 py-2 bg-primary-50 rounded-[var(--radius-md)] border border-primary-100">
-              <div><p className="text-sm font-medium text-primary">{selectedArticle.name}</p><p className="text-xs text-[var(--color-text-muted)]">Disponible : <span className="font-medium">{formatQty(availableQty)} {selectedArticle.units?.abbreviation}</span></p></div>
-              <button type="button" onClick={reset} className="text-[var(--color-text-faint)] hover:text-[var(--color-text)]"><X size={14} /></button>
-            </div>
-          )}
+          ))}
         </div>
-        <Input label="Quantité prélevée *" type="number" min="0.001" step="0.001" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0" hint={selectedArticle ? `Max : ${formatQty(availableQty)} ${selectedArticle.units?.abbreviation}` : undefined} />
-        <Input label="Note (optionnel)" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ex : pour le bar principal" />
+
+        {/* Actions */}
         <div className="flex gap-3 pt-1">
-          <Button type="button" variant="outline" className="flex-1" onClick={() => { reset(); onClose(); }}>Annuler</Button>
-          <Button type="submit" className="flex-1 gap-1" loading={loading}><PackageMinus size={15} /> Prélever</Button>
+          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Annuler</Button>
+          <Button className="flex-1 gap-1" loading={loading} onClick={handleSubmit} disabled={toSubmit.length === 0}>
+            <PackageMinus size={15} /> Prélever {toSubmit.length > 0 ? `(${toSubmit.length})` : ''}
+          </Button>
         </div>
-      </form>
+      </div>
     </Modal>
   );
 };
@@ -508,8 +608,10 @@ const EvenementDetail = ({ eventId, onBack }) => {
     (s, a) => s + a.qty * (a.article?.last_purchase_price ?? 0), 0
   );
 
-  const handleWithdraw = async ({ articleId, quantity, note }) => {
-    await addWithdrawal({ eventId, articleId, quantity, note, actorId: user.id });
+  const handleWithdraw = async (items) => {
+    for (const { articleId, quantity, note } of items) {
+      await addWithdrawal({ eventId, articleId, quantity, note, actorId: user.id });
+    }
     await load();
   };
 
@@ -708,7 +810,7 @@ const EvenementDetail = ({ eventId, onBack }) => {
       )}
 
       {/* Modals */}
-      <WithdrawalModal open={withdrawModal} onClose={() => setWithdrawModal(false)} onSave={handleWithdraw} articles={articles} stock={stock} />
+      <WithdrawalModal open={withdrawModal} onClose={() => setWithdrawModal(false)} onSave={handleWithdraw} stock={stock} />
 
       <Modal open={respModal} onClose={() => setRespModal(false)} title="Ajouter un responsable" size="sm">
         <div className="flex flex-col gap-4">
