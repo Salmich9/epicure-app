@@ -130,6 +130,9 @@ const Catalogue = () => {
   const [units,      setUnits]      = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [search,     setSearch]     = useState('');
+  const [filterCat,  setFilterCat]  = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [filterAlert,setFilterAlert]= useState(false);
   const [modalOpen,  setModalOpen]  = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -166,9 +169,17 @@ const Catalogue = () => {
 
   // Filtre + groupement par catégorie
   const grouped = useMemo(() => {
-    const filtered = articles.filter((a) =>
-      a.name.toLowerCase().includes(search.toLowerCase())
-    );
+    const filtered = articles.filter((a) => {
+      if (search     && !a.name.toLowerCase().includes(search.toLowerCase())) return false;
+      if (filterCat  && a.category_id !== filterCat)  return false;
+      if (filterType && a.type        !== filterType)  return false;
+      if (filterAlert) {
+        const s = stockMap[a.id];
+        const qty = Number(s?.quantity ?? 0);
+        if (a.low_stock_threshold == null || qty > Number(a.low_stock_threshold)) return false;
+      }
+      return true;
+    });
     const map = {};
     filtered.forEach((a) => {
       const catId = a.category_id;
@@ -176,7 +187,7 @@ const Catalogue = () => {
       map[catId].items.push(a);
     });
     return Object.values(map).sort((a, b) => (a.cat?.sort_order ?? 99) - (b.cat?.sort_order ?? 99));
-  }, [articles, search]);
+  }, [articles, search, filterCat, filterType, filterAlert, stockMap]);
 
   const handleSave = async (form, photoFile) => {
     setSaving(true);
@@ -248,15 +259,62 @@ const Catalogue = () => {
         )}
       </div>
 
-      {/* Recherche */}
-      <div className="relative mb-6">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-faint)]" />
-        <input
-          className="w-full h-11 pl-9 pr-4 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-          placeholder="Rechercher un article…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      {/* Recherche + filtres */}
+      <div className="flex flex-col gap-3 mb-6">
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-faint)]" />
+          <input
+            className="w-full h-11 pl-9 pr-4 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            placeholder="Rechercher un article…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Filtre catégorie */}
+          <select
+            value={filterCat}
+            onChange={(e) => setFilterCat(e.target.value)}
+            className="h-9 pl-3 pr-8 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          >
+            <option value="">Toutes les catégories</option>
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+
+          {/* Filtre type */}
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="h-9 pl-3 pr-8 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          >
+            <option value="">Tous les types</option>
+            <option value="retournable">Retournable</option>
+            <option value="consommable">Consommable</option>
+          </select>
+
+          {/* Filtre alerte stock */}
+          <button
+            onClick={() => setFilterAlert((v) => !v)}
+            className={`h-9 px-3 rounded-[var(--radius-md)] border text-sm font-medium transition-colors flex items-center gap-1.5 ${
+              filterAlert
+                ? 'bg-accent text-white border-accent'
+                : 'bg-white text-[var(--color-text-muted)] border-[var(--color-border)] hover:bg-warm-100'
+            }`}
+          >
+            ⚠ En alerte
+          </button>
+
+          {/* Reset */}
+          {(filterCat || filterType || filterAlert) && (
+            <button
+              onClick={() => { setFilterCat(''); setFilterType(''); setFilterAlert(false); }}
+              className="h-9 px-3 rounded-[var(--radius-md)] text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] underline"
+            >
+              Réinitialiser
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Articles groupés par catégorie */}
