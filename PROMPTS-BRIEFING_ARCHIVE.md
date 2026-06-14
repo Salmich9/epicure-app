@@ -1,3 +1,22 @@
+# Prompts — Epicure App
+
+## Push sur GitHub
+
+```
+git add .
+git commit -m "..."
+git push
+```
+
+Ou pour des fichiers spécifiques :
+```
+git add src/pages/Evenements.jsx src/data/briefingConfig.js
+git commit -m "feat: description du changement"
+git push
+```
+
+---
+
 # Prompts — Modifier le Briefing Événement
 
 Copie-colle l'un de ces modèles et adapte-le.
