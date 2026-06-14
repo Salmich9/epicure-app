@@ -20,15 +20,32 @@ export const fetchArticleMovements = async (articleId, limit = 10) => {
   const { data, error } = await supabase
     .from('stock_movements')
     .select(`
-      id, type, quantity, note, created_at,
-      users:created_by ( full_name ),
-      events:reference_id ( name )
+      id, type, quantity, note, created_at, reference_type, reference_id,
+      users:created_by ( full_name )
     `)
     .eq('article_id', articleId)
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return data;
+
+  // Récupère les noms des événements liés
+  const eventIds = [...new Set(
+    data.filter((m) => m.reference_type === 'event' && m.reference_id).map((m) => m.reference_id)
+  )];
+
+  let eventNames = {};
+  if (eventIds.length > 0) {
+    const { data: evs } = await supabase
+      .from('events')
+      .select('id, name')
+      .in('id', eventIds);
+    if (evs) evs.forEach((e) => { eventNames[e.id] = e.name; });
+  }
+
+  return data.map((m) => ({
+    ...m,
+    event_name: m.reference_type === 'event' ? (eventNames[m.reference_id] ?? null) : null,
+  }));
 };
 
 // Valeur totale du dépôt

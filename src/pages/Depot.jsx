@@ -80,8 +80,8 @@ const MovementsPanel = ({ article, onClose }) => {
                     <p className={`text-sm font-semibold ${Number(m.quantity) >= 0 ? 'text-green-600' : 'text-accent'}`}>
                       {Number(m.quantity) >= 0 ? '+' : ''}{formatQty(m.quantity)} {article.units?.abbreviation}
                     </p>
-                    {m.events?.name && (
-                      <p className="text-xs text-[var(--color-text-muted)] truncate">{m.events.name}</p>
+                    {m.event_name && (
+                      <p className="text-xs text-[var(--color-text-muted)] truncate">{m.event_name}</p>
                     )}
                     {m.note && (
                       <p className="text-xs text-[var(--color-text-faint)] truncate">{m.note}</p>
