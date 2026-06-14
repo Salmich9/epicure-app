@@ -8,7 +8,7 @@ import { fetchArticles } from '../data/articles';
 import ArticleFormModal from '../components/ArticleFormModal';
 import Modal from '../components/ui/Modal';
 import Button from '../components/ui/Button';
-import Input, { Select } from '../components/ui/Input';
+import Input from '../components/ui/Input';
 import { PageLoader } from '../components/ui/Spinner';
 import { formatMAD, formatQty, formatDate } from '../lib/utils';
 
@@ -94,16 +94,99 @@ const ArticleCombobox = ({ articles, value, onChange, onRequestCreate }) => {
   );
 };
 
+// ── Combobox fournisseur avec création à la volée ─────────────
+const SupplierCombobox = ({ suppliers, value, onChange, onRequestCreate }) => {
+  const [query, setQuery] = useState('');
+  const [open,  setOpen]  = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const s = suppliers.find((s) => s.id === value);
+    setQuery(s ? s.name : '');
+  }, [value, suppliers]);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = query
+    ? suppliers.filter((s) => s.name.toLowerCase().includes(query.toLowerCase()))
+    : suppliers;
+
+  const exactMatch = suppliers.some((s) => s.name.toLowerCase() === query.toLowerCase());
+  const showCreate = query.trim().length > 0 && !exactMatch;
+
+  const handleSelect = (s) => { onChange(s); setQuery(s.name); setOpen(false); };
+  const handleCreate = () => { setOpen(false); onRequestCreate(query.trim()); };
+
+  return (
+    <div className="flex flex-col gap-1" ref={ref}>
+      <label className="text-sm font-medium text-[var(--color-text)]">Fournisseur</label>
+      <div className="relative">
+        <input
+          className="w-full h-11 pl-3 pr-9 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          placeholder="Rechercher ou créer un fournisseur…"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); onChange(null); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+        />
+        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-faint)] pointer-events-none" />
+
+        {open && (
+          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-[var(--color-border)] rounded-[var(--radius-md)] shadow-lg max-h-48 overflow-y-auto">
+            {/* Option "aucun fournisseur" */}
+            <button
+              type="button"
+              className="w-full text-left px-4 py-2.5 text-sm text-[var(--color-text-faint)] hover:bg-warm-50 italic"
+              onMouseDown={(e) => { e.preventDefault(); onChange(null); setQuery(''); setOpen(false); }}
+            >
+              — Aucun fournisseur —
+            </button>
+            {filtered.length === 0 && !showCreate && (
+              <p className="px-4 py-2.5 text-sm text-[var(--color-text-faint)]">Aucun fournisseur trouvé.</p>
+            )}
+            {filtered.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-warm-50 flex items-center justify-between"
+                onMouseDown={(e) => { e.preventDefault(); handleSelect(s); }}
+              >
+                <span className="font-medium text-[var(--color-text)]">{s.name}</span>
+                {s.phone && <span className="text-xs text-[var(--color-text-faint)]">{s.phone}</span>}
+              </button>
+            ))}
+            {showCreate && (
+              <button
+                type="button"
+                className="w-full text-left px-4 py-2.5 text-sm text-primary font-medium hover:bg-primary-50 border-t border-[var(--color-border)] flex items-center gap-2"
+                onMouseDown={(e) => { e.preventDefault(); handleCreate(); }}
+              >
+                <Plus size={14} />
+                Créer «{query.trim()}»
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ── Modal nouvel achat ────────────────────────────────────────
-const PurchaseModal = ({ open, onClose, onSaved, articles, suppliers, onArticleCreated }) => {
+const PurchaseModal = ({ open, onClose, onSaved, articles, suppliers, onArticleCreated, onSupplierCreated }) => {
   const { user } = useAuth();
   const [form, setForm] = useState({
     article_id: '', supplier_id: '', quantity: '', unit_price: '',
     date: new Date().toISOString().split('T')[0], note: '',
   });
-  const [saving,          setSaving]          = useState(false);
-  const [articleModal,    setArticleModal]    = useState(false);
-  const [newArticleName,  setNewArticleName]  = useState('');
+  const [saving,           setSaving]           = useState(false);
+  const [articleModal,     setArticleModal]     = useState(false);
+  const [newArticleName,   setNewArticleName]   = useState('');
+  const [supplierModal,    setSupplierModal]    = useState(false);
+  const [newSupplierName,  setNewSupplierName]  = useState('');
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -113,16 +196,21 @@ const PurchaseModal = ({ open, onClose, onSaved, articles, suppliers, onArticleC
     if (art.last_purchase_price) set('unit_price', String(art.last_purchase_price));
   };
 
-  const handleRequestCreate = (name) => {
-    setNewArticleName(name);
-    setArticleModal(true);
-  };
+  const handleRequestCreateArticle = (name) => { setNewArticleName(name); setArticleModal(true); };
 
   const handleArticleCreated = async (art) => {
     await onArticleCreated();
-    // Sélectionner automatiquement le nouvel article
     set('article_id', art.id);
     if (art.last_purchase_price) set('unit_price', String(art.last_purchase_price));
+  };
+
+  const handleSupplierSelect = (s) => { set('supplier_id', s ? s.id : ''); };
+
+  const handleRequestCreateSupplier = (name) => { setNewSupplierName(name); setSupplierModal(true); };
+
+  const handleSupplierCreated = async (s) => {
+    await onSupplierCreated();
+    set('supplier_id', s.id);
   };
 
   const handleSubmit = async (e) => {
@@ -160,13 +248,15 @@ const PurchaseModal = ({ open, onClose, onSaved, articles, suppliers, onArticleC
             articles={articles}
             value={form.article_id}
             onChange={handleArticleSelect}
-            onRequestCreate={handleRequestCreate}
+            onRequestCreate={handleRequestCreateArticle}
           />
 
-          <Select label="Fournisseur" value={form.supplier_id} onChange={(e) => set('supplier_id', e.target.value)}>
-            <option value="">— Aucun fournisseur —</option>
-            {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </Select>
+          <SupplierCombobox
+            suppliers={suppliers}
+            value={form.supplier_id}
+            onChange={handleSupplierSelect}
+            onRequestCreate={handleRequestCreateSupplier}
+          />
 
           <div className="grid grid-cols-2 gap-3">
             <Input
@@ -209,20 +299,29 @@ const PurchaseModal = ({ open, onClose, onSaved, articles, suppliers, onArticleC
         onCreated={handleArticleCreated}
         initial={{ name: newArticleName }}
       />
+
+      {/* Création de fournisseur à la volée */}
+      <SupplierModal
+        open={supplierModal}
+        onClose={() => setSupplierModal(false)}
+        onSaved={handleSupplierCreated}
+        editing={null}
+        initialName={newSupplierName}
+      />
     </>
   );
 };
 
 // ── Modal fournisseur ─────────────────────────────────────────
-const SupplierModal = ({ open, onClose, onSaved, editing }) => {
+const SupplierModal = ({ open, onClose, onSaved, editing, initialName = '' }) => {
   const { user } = useAuth();
   const [form, setForm] = useState({ name: '', phone: '', note: '' });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (editing) setForm({ name: editing.name, phone: editing.phone ?? '', note: editing.note ?? '' });
-    else setForm({ name: '', phone: '', note: '' });
-  }, [editing, open]);
+    else setForm({ name: initialName, phone: '', note: '' });
+  }, [editing, open, initialName]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -230,13 +329,14 @@ const SupplierModal = ({ open, onClose, onSaved, editing }) => {
     setSaving(true);
     try {
       if (editing) {
-        await updateSupplier(editing.id, form, user.id);
+        const updated = await updateSupplier(editing.id, form, user.id);
         toast.success('Fournisseur mis à jour');
+        onSaved(updated);
       } else {
-        await createSupplier(form, user.id);
+        const created = await createSupplier(form, user.id);
         toast.success('Fournisseur ajouté');
+        onSaved(created);
       }
-      onSaved();
       onClose();
     } catch (e) {
       toast.error(e.message || 'Erreur');
@@ -281,10 +381,14 @@ const Achats = () => {
     finally { setLoading(false); }
   };
 
-  // Recharge uniquement la liste d'articles (après création à la volée)
   const reloadArticles = async () => {
     const a = await fetchArticles();
     setArticles(a);
+  };
+
+  const reloadSuppliers = async () => {
+    const s = await fetchSuppliers(false);
+    setSuppliers(s);
   };
 
   useEffect(() => { load(); }, []);
@@ -414,6 +518,7 @@ const Achats = () => {
         articles={articles}
         suppliers={suppliers.filter((s) => s.active)}
         onArticleCreated={reloadArticles}
+        onSupplierCreated={reloadSuppliers}
       />
       <SupplierModal
         open={modalSupplier}
