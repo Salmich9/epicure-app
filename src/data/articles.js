@@ -49,7 +49,7 @@ export const uploadArticlePhoto = async (file, articleId) => {
   const ext = file.name.split('.').pop().toLowerCase();
   const path = `${articleId}.${ext}`;
   const { error: upErr } = await supabase.storage
-    .from('article_photos')
+    .from('article-photos')
     .upload(path, file, { upsert: true, contentType: file.type });
   if (upErr) throw upErr;
   const { data } = supabase.storage.from('article-photos').getPublicUrl(path);
