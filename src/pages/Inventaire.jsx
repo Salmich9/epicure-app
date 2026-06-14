@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Plus, ChevronRight, CheckCircle2, Clock, ArrowLeft, Pen } from 'lucide-react';
+import { Plus, ChevronRight, CheckCircle2, Clock, ArrowLeft, Pen, Zap, Archive } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import usePermission from '../hooks/usePermission';
@@ -58,6 +58,8 @@ const InventaireList = ({ onSelect, onNew, canCreate }) => {
               <div className="flex items-center gap-3">
                 {inv.status === 'valide'
                   ? <CheckCircle2 size={20} className="text-green-500 flex-shrink-0" />
+                  : inv.status === 'archive'
+                  ? <Archive size={20} className="text-gray-400 flex-shrink-0" />
                   : <Clock size={20} className="text-yellow-500 flex-shrink-0" />
                 }
                 <div>
@@ -131,6 +133,21 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
 
   const setQty = (articleId, val) => {
     setCounts((prev) => ({ ...prev, [articleId]: { ...prev[articleId], qty: val } }));
+  };
+
+  // Pré-remplit toutes les quantités vides avec le stock actuel
+  const prefillFromStock = () => {
+    setCounts((prev) => {
+      const next = { ...prev };
+      articles.forEach((a) => {
+        if (!next[a.id]?.qty) {
+          const currentQty = Number(stock[a.id]?.quantity ?? 0);
+          next[a.id] = { ...next[a.id], qty: String(currentQty) };
+        }
+      });
+      return next;
+    });
+    toast.success('Quantités pré-remplies depuis le stock actuel');
   };
 
   const handleBlurQty = async (articleId) => {
@@ -219,10 +236,17 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
               {formatMAD(inv.status === 'valide' ? inv.total_value : totalCurrent)}
             </p>
           </div>
-          {isDraft && canValidate && (
-            <Button onClick={() => setValidateOpen(true)} className="gap-2">
-              <Pen size={16} /> Signer
-            </Button>
+          {isDraft && (
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={prefillFromStock} className="gap-2">
+                <Zap size={16} /> Pré-remplir
+              </Button>
+              {canValidate && (
+                <Button onClick={() => setValidateOpen(true)} className="gap-2">
+                  <Pen size={16} /> Signer
+                </Button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -272,7 +296,7 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
                               value={c.qty}
                               onChange={(e) => setQty(a.id, e.target.value)}
                               onBlur={() => handleBlurQty(a.id)}
-                              placeholder="0"
+                              placeholder=""
                               className="w-24 h-10 text-right px-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                             />
                             {saving[a.id] && (

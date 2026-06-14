@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Package, Warehouse, ClipboardList, Settings, History, LogOut, CalendarDays } from 'lucide-react';
+import { LayoutDashboard, Package, Warehouse, ClipboardList, Settings, History, LogOut, CalendarDays, ShoppingCart } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
 
@@ -9,6 +9,7 @@ const NAV = [
   { to: '/depot',      icon: Warehouse,    label: 'Dépôt',       perm: 'depot.read' },
   { to: '/inventaire', icon: ClipboardList,label: 'Inventaire',  perm: 'inventory.read' },
   { to: '/evenements', icon: CalendarDays, label: 'Événements',  perm: 'events.read' },
+  { to: '/achats',     icon: ShoppingCart,  label: 'Achats',      perm: 'purchases.read' },
   { to: '/historique', icon: History,      label: 'Historique',  perm: 'historique.read' },
   { to: '/parametres', icon: Settings,     label: 'Paramètres',  perm: 'settings.read' },
 ];
