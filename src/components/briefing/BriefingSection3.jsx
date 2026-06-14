@@ -3,6 +3,7 @@ import { Save, Plus, Trash2, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fetchBriefing, saveBriefingAnswers } from '../../data/briefing';
 import { fetchCurrentStock } from '../../data/stock';
+import { fetchCocktailRecipes, createCocktailRecipe } from '../../data/cocktailRecipes';
 import { cn, formatQty } from '../../lib/utils';
 import { PageLoader } from '../ui/Spinner';
 
@@ -128,6 +129,132 @@ const emptycocktail = () => ({
   shots_prevus: '',       // Oui | Non
 });
 
+// ── Modal création recette ────────────────────────────────────
+
+const RecipeModal = ({ initialName, stock, onSaved, onClose }) => {
+  const [fields, setFields] = useState({
+    nom: initialName ?? '', type_carte: '', alcool_article_id: null,
+    verre_article_id: null, garnish_article_id: null,
+    glacons: '', dosage: '', service_alcool: '', notes: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const upd = (k, v) => setFields((p) => ({ ...p, [k]: v }));
+
+  const handleSave = async () => {
+    if (!fields.nom.trim()) { toast.error('Nom requis'); return; }
+    setSaving(true);
+    try {
+      const recipe = await createCocktailRecipe(fields);
+      onSaved(recipe);
+    } catch (e) {
+      toast.error(e.message || 'Erreur');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+      <div className="bg-white rounded-[var(--radius-lg)] shadow-xl w-full max-w-lg p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+        <h2 className="font-display text-xl font-bold text-[var(--color-text)]">Nouvelle recette</h2>
+        <p className="text-xs text-[var(--color-text-muted)]">Cette recette sera sauvegardée dans votre catalogue et disponible pour tous les futurs événements.</p>
+
+        <div><Label>Nom du cocktail</Label>
+          <input className={baseInput} value={fields.nom} onChange={(e) => upd('nom', e.target.value)} placeholder="Ex : Mojito Maison" />
+        </div>
+        <div><Label>Type</Label>
+          <SelectOne options={['Classique', 'Signature']} value={fields.type_carte} onChange={(v) => upd('type_carte', v)} small />
+        </div>
+        <div><Label>Alcool principal</Label>
+          <ArticleCombobox stock={stock} value={fields.alcool_article_id} onChange={(v) => upd('alcool_article_id', v)} placeholder="Sélectionner…" categoryKeywords={['alcool', 'spiritueux', 'whisky', 'vodka', 'rhum', 'gin', 'tequila', 'liqueur']} />
+        </div>
+        <div><Label>Verre</Label>
+          <ArticleCombobox stock={stock} value={fields.verre_article_id} onChange={(v) => upd('verre_article_id', v)} placeholder="Sélectionner…" categoryKeywords={['verr', 'verre', 'verrerie']} />
+        </div>
+        <div><Label>Garnish</Label>
+          <ArticleCombobox stock={stock} value={fields.garnish_article_id} onChange={(v) => upd('garnish_article_id', v)} placeholder="Sélectionner…" categoryKeywords={['garnish', 'garniture', 'déco', 'fruit']} />
+        </div>
+        <div><Label>Glaçons</Label>
+          <SelectOne options={['Sans', 'Cube alimentaire', 'Transparent']} value={fields.glacons} onChange={(v) => upd('glacons', v)} small />
+        </div>
+        <div><Label>Dosage</Label>
+          <SelectOne options={['2cl', '3cl', '4cl', '5cl', '6cl']} value={fields.dosage} onChange={(v) => upd('dosage', v)} small />
+        </div>
+        <div><Label>Service alcool</Label>
+          <SelectOne options={["Bouteille d'origine", 'Carafe', 'Bouteille noire']} value={fields.service_alcool} onChange={(v) => upd('service_alcool', v)} small />
+        </div>
+        <div><Label>Notes</Label>
+          <textarea className={cn(baseInput, 'resize-y min-h-[60px]')} value={fields.notes} onChange={(e) => upd('notes', e.target.value)} rows={2} />
+        </div>
+        <div className="flex gap-2 justify-end pt-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-[var(--radius-md)] text-sm border border-[var(--color-border)] hover:bg-warm-50 min-h-[40px]">Annuler</button>
+          <button type="button" onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-[var(--radius-md)] text-sm font-medium bg-primary text-white hover:bg-primary/90 disabled:opacity-50 min-h-[40px]">
+            {saving ? 'Création…' : 'Créer la recette'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Combobox recette ──────────────────────────────────────────
+
+const RecipeCombobox = ({ recipes, value, onSelect, onCreateNew }) => {
+  const [query, setQuery] = useState('');
+  const [open,  setOpen]  = useState(false);
+  const ref = useRef(null);
+
+  const selected = recipes.find((r) => r.id === value) ?? null;
+
+  useEffect(() => { setQuery(selected ? selected.nom : ''); }, [selected]);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = recipes.filter((r) => r.nom.toLowerCase().includes(query.toLowerCase()));
+  const showCreate = query.trim() && !filtered.some((r) => r.nom.toLowerCase() === query.trim().toLowerCase());
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="relative">
+        <input type="text" className={cn(baseInput, 'pr-8 font-medium')}
+          placeholder="Sélectionner ou créer un cocktail…"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); onSelect(null); }}
+          onFocus={() => setOpen(true)}
+        />
+        <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-faint)] pointer-events-none" />
+      </div>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-white border border-[var(--color-border)] rounded-[var(--radius-md)] shadow-lg max-h-52 overflow-y-auto">
+          {filtered.length === 0 && !showCreate && (
+            <div className="px-3 py-2 text-sm text-[var(--color-text-faint)]">Aucune recette — tapez pour créer</div>
+          )}
+          {filtered.map((r) => (
+            <button key={r.id} type="button"
+              onClick={() => { onSelect(r); setQuery(r.nom); setOpen(false); }}
+              className="w-full text-left px-3 py-2.5 text-sm hover:bg-warm-50 transition-colors flex items-center justify-between"
+            >
+              <span className="font-medium">{r.nom}</span>
+              {r.type_carte && <span className="text-xs text-[var(--color-text-faint)]">{r.type_carte}</span>}
+            </button>
+          ))}
+          {showCreate && (
+            <button type="button" onClick={() => { onCreateNew(query.trim()); setOpen(false); }}
+              className="w-full text-left px-3 py-2.5 text-sm text-primary font-medium hover:bg-primary/5 transition-colors flex items-center gap-1.5 border-t border-[var(--color-border)]"
+            >
+              <Plus size={14} /> Créer la recette « {query.trim()} »
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const emptyShot = () => ({
   id: crypto.randomUUID(),
   lie_cocktail: '',       // Oui | Non
@@ -145,9 +272,24 @@ const GLACONS_OPTS = ['Sans', 'Cube alimentaire', 'Transparent'];
 
 // ── Ligne cocktail UI ─────────────────────────────────────────
 
-const CocktailRow = ({ index, cocktail, stock, onChange, onRemove, canRemove }) => {
+const CocktailRow = ({ index, cocktail, stock, recipes, onChange, onRemove, canRemove, onOpenRecipeModal }) => {
   const upd = (k, v) => onChange({ ...cocktail, [k]: v });
-  const nb_adultes_hint = ''; // sera injecté depuis answers si besoin
+
+  const handleRecipeSelect = (recipe) => {
+    if (!recipe) return;
+    onChange({
+      ...cocktail,
+      recipe_id:       recipe.id,
+      nom_custom:      recipe.nom,
+      type_carte:      recipe.type_carte      ?? cocktail.type_carte,
+      article_id:      recipe.alcool_article_id  ?? cocktail.article_id,
+      verre_id:        recipe.verre_article_id   ?? cocktail.verre_id,
+      garnish_id:      recipe.garnish_article_id ?? cocktail.garnish_id,
+      glacons:         recipe.glacons         ?? cocktail.glacons,
+      dosage:          recipe.dosage          ?? cocktail.dosage,
+      service_alcool:  recipe.service_alcool  ?? cocktail.service_alcool,
+    });
+  };
 
   return (
     <div className="border border-[var(--color-border)] rounded-[var(--radius-md)] p-4 flex flex-col gap-3 bg-white">
@@ -159,6 +301,19 @@ const CocktailRow = ({ index, cocktail, stock, onChange, onRemove, canRemove }) 
           </button>
         )}
       </div>
+
+      {/* Sélection recette — pré-remplit tout */}
+      <Field label="Recette cocktail">
+        <RecipeCombobox
+          recipes={recipes}
+          value={cocktail.recipe_id ?? null}
+          onSelect={handleRecipeSelect}
+          onCreateNew={onOpenRecipeModal}
+        />
+        {cocktail.recipe_id && (
+          <p className="text-xs text-[var(--color-text-faint)] mt-1">Recette chargée — modifiez les exceptions ci-dessous</p>
+        )}
+      </Field>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Type">
@@ -283,7 +438,7 @@ const ShotRow = ({ index, shot, stock, cocktails, onChange, onRemove, canRemove 
 
 // ── Panel par bar ─────────────────────────────────────────────
 
-const BarMenuPanel = ({ barIndex, stock, cocktails, shots, onCocktailsChange, onShotsChange }) => {
+const BarMenuPanel = ({ barIndex, stock, recipes, cocktails, shots, onCocktailsChange, onShotsChange, onOpenRecipeModal }) => {
   const addCocktail = () => {
     if (cocktails.length >= 8) { toast.error('Maximum 8 cocktails par bar'); return; }
     onCocktailsChange([...cocktails, emptycocktail()]);
@@ -322,10 +477,11 @@ const BarMenuPanel = ({ barIndex, stock, cocktails, shots, onCocktailsChange, on
         ) : (
           <div className="flex flex-col gap-3">
             {cocktails.map((c, i) => (
-              <CocktailRow key={c.id} index={i} cocktail={c} stock={stock}
+              <CocktailRow key={c.id} index={i} cocktail={c} stock={stock} recipes={recipes}
                 onChange={(val) => updateCocktail(i, val)}
                 onRemove={() => removeCocktail(i)}
                 canRemove={cocktails.length > 1}
+                onOpenRecipeModal={onOpenRecipeModal}
               />
             ))}
           </div>
@@ -364,21 +520,24 @@ const BarMenuPanel = ({ barIndex, stock, cocktails, shots, onCocktailsChange, on
 // ── Composant principal Section 3 ─────────────────────────────
 
 const BriefingSection3 = ({ eventId }) => {
-  const [answers,    setAnswers]    = useState({});
-  const [stock,      setStock]      = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [saving,     setSaving]     = useState(false);
-  const [activeBar,  setActiveBar]  = useState(0);
+  const [answers,     setAnswers]     = useState({});
+  const [stock,       setStock]       = useState([]);
+  const [recipes,     setRecipes]     = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [saving,      setSaving]      = useState(false);
+  const [activeBar,   setActiveBar]   = useState(0);
+  const [recipeModal, setRecipeModal] = useState(null); // initialName string
 
   // cocktails[barIndex] = array, shots[barIndex] = array
   const [cocktailsByBar, setCocktailsByBar] = useState({});
   const [shotsByBar,     setShotsByBar]     = useState({});
 
   useEffect(() => {
-    Promise.all([fetchBriefing(eventId), fetchCurrentStock()])
-      .then(([ans, stk]) => {
+    Promise.all([fetchBriefing(eventId), fetchCurrentStock(), fetchCocktailRecipes()])
+      .then(([ans, stk, recs]) => {
         setAnswers(ans);
         setStock(stk);
+        setRecipes(recs);
 
         // Désérialise cocktails et shots depuis event_briefing
         const cb = {}, sb = {};
@@ -444,10 +603,24 @@ const BriefingSection3 = ({ eventId }) => {
         <BarMenuPanel
           barIndex={activeBar}
           stock={stock}
+          recipes={recipes}
           cocktails={cocktailsByBar[activeBar] ?? []}
           shots={shotsByBar[activeBar] ?? []}
           onCocktailsChange={(val) => setCocktailsByBar((p) => ({ ...p, [activeBar]: val }))}
           onShotsChange={(val) => setShotsByBar((p) => ({ ...p, [activeBar]: val }))}
+          onOpenRecipeModal={(name) => setRecipeModal(name)}
+        />
+      )}
+
+      {recipeModal !== null && (
+        <RecipeModal
+          initialName={recipeModal}
+          stock={stock}
+          onSaved={(recipe) => {
+            setRecipes((prev) => [...prev, recipe].sort((a, b) => a.nom.localeCompare(b.nom)));
+            setRecipeModal(null);
+          }}
+          onClose={() => setRecipeModal(null)}
         />
       )}
 
