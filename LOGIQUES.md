@@ -1,353 +1,332 @@
 # LOGIQUES.md — Logiques de calcul d'Epicure
 
-> Toutes les logiques de calcul codées dans React, documentées en français simple.
-> **À mettre à jour après chaque session Claude Code.**
+> Ce fichier explique en français simple toutes les règles de calcul
+> utilisées par l'application. À mettre à jour après chaque session de développement.
 > Dernière mise à jour : 2026-06-14
 
 ---
 
-## 1. Valeur totale du stock (Dépôt)
+## 1. Valeur totale du stock (page Dépôt)
 
-**Description :** Calcule la valeur financière de tout le stock physique présent au dépôt.
+**Description :** Pour chaque article présent au dépôt, on multiplie la quantité disponible par son coût moyen pondéré. On additionne tous les articles actifs pour obtenir la valeur totale affichée en haut de la page Dépôt.
 
-**Formule :** Quantité en stock × Coût moyen pondéré = Valeur de l'article → Somme de tous les articles actifs = Valeur totale
+**Formule :** Quantité en stock × Coût moyen pondéré = Valeur de l'article → Addition de tous les articles actifs = Valeur totale du dépôt
 
 **Fichier :** `src/pages/Depot.jsx`
 
-**Fonction :** `useMemo(() => stock.reduce(...))`
+**Calcul situé à la ligne :** ~146
 
-**Ligne approximative :** ~146
+**Variables depuis les Réglages :** non
 
-**Variables depuis app_settings :** non
+**Modifiable sans code :** non — le coût moyen se recalcule automatiquement à chaque achat enregistré
 
-**Modifiable sans code :** non — le coût moyen pondéré (`average_cost`) est recalculé automatiquement à chaque achat
+**Risque de modification :** élevé
 
-**Risque modification :** élevé
+**Pourquoi ce risque :** Changer la base de calcul (par exemple utiliser un autre prix que le coût moyen) fausserait toute la valorisation du stock.
 
-**Pourquoi ce risque :** Changer la base de calcul (ex. remplacer CMP par dernier prix) fausse toute la valorisation historique du stock.
-
-**Dépend de :** Logique n°2 (CMP), vue SQL `current_stock`
+**Dépend de :** Logique n°2 (coût moyen pondéré)
 
 ---
 
 ## 2. Coût moyen pondéré (CMP)
 
-**Description :** Recalcule le prix unitaire moyen d'un article chaque fois qu'un achat est enregistré, en tenant compte du stock existant et du nouveau lot acheté.
+**Description :** Chaque fois qu'un achat est enregistré, l'application recalcule automatiquement le prix moyen unitaire de l'article, en tenant compte du stock déjà en place et du nouveau lot reçu.
 
-**Formule :** (Stock avant × CMP actuel + Quantité achetée × Prix unitaire achat) ÷ (Stock avant + Quantité achetée) = Nouveau CMP
+**Formule :** (Quantité en stock avant achat × Prix moyen actuel + Quantité achetée × Prix d'achat) ÷ (Quantité en stock avant + Quantité achetée) = Nouveau prix moyen
 
-**Fichier :** `supabase/migrations/013_average_cost.sql` (RPC SQL) + `src/data/purchases.js` (appel)
+**Exemple :** 200 cloches à 25 DH en stock. Achat de 100 cloches à 18 DH. Nouveau prix moyen = (200 × 25 + 100 × 18) ÷ 300 = 22,67 DH
 
-**Fonction :** RPC `recalculate_average_cost()` appelée dans `createPurchase()`
+**Fichier :** `src/data/purchases.js` (déclenchement) + calcul effectué automatiquement par la base de données
 
-**Ligne approximative :** `purchases.js` ~73
+**Calcul situé à la ligne :** ~73 dans `purchases.js`
 
-**Variables depuis app_settings :** non
+**Variables depuis les Réglages :** non
 
 **Modifiable sans code :** non
 
-**Risque modification :** élevé
+**Risque de modification :** élevé
 
-**Pourquoi ce risque :** Erreur dans cette formule = toute la valorisation du stock est fausse pour tous les articles touchés.
+**Pourquoi ce risque :** Une erreur dans cette formule fausse la valorisation de tout le stock pour les articles concernés.
 
-**Dépend de :** table `stock_movements`, colonne `articles.average_cost`
+**Dépend de :** l'historique des mouvements de stock et du prix moyen précédent de l'article
 
 ---
 
-## 3. Valeur d'un article dans l'inventaire (total courant)
+## 3. Valeur totale en cours de saisie (page Inventaire)
 
-**Description :** Affiche en temps réel la valeur totale comptée pendant la saisie d'un inventaire, avant validation.
+**Description :** Pendant qu'on saisit un inventaire, l'application calcule en temps réel la valeur totale de ce qu'on est en train de compter, article par article, et l'affiche en bas de page.
 
-**Formule :** Somme pour chaque article de (Quantité saisie × Prix unitaire) = Total de l'inventaire en cours
+**Formule :** Addition de (Quantité saisie × Dernier prix d'achat) pour chaque article = Total affiché en cours de saisie
 
 **Fichier :** `src/pages/Inventaire.jsx`
 
-**Fonction :** `useMemo(() => articles.reduce(...))` nommé `totalCurrent`
+**Calcul situé à la ligne :** ~185
 
-**Ligne approximative :** ~185
-
-**Variables depuis app_settings :** non
+**Variables depuis les Réglages :** non
 
 **Modifiable sans code :** non
 
-**Risque modification :** modéré
+**Risque de modification :** modéré
 
-**Pourquoi ce risque :** Le prix unitaire utilisé est `last_purchase_price` (pas le CMP) — cohérent pour un inventaire mais à distinguer de la valorisation du dépôt.
+**Pourquoi ce risque :** Ce calcul utilise le dernier prix d'achat (pas le coût moyen) — c'est intentionnel pour l'inventaire, mais à ne pas confondre avec la valorisation du dépôt.
 
-**Dépend de :** champ `articles.last_purchase_price`
+**Dépend de :** le dernier prix d'achat de chaque article
 
 ---
 
 ## 4. Détection des articles en alerte stock
 
-**Description :** Identifie les articles dont la quantité en stock est inférieure ou égale au seuil d'alerte défini.
+**Description :** L'application compare en permanence la quantité disponible de chaque article avec le seuil d'alerte que tu as défini dans le catalogue. Si la quantité est inférieure ou égale au seuil, l'article apparaît en alerte (page Dépôt, tableau de bord).
 
-**Formule :** Quantité actuelle ≤ Seuil d'alerte → Article en alerte
+**Formule :** Quantité disponible ≤ Seuil d'alerte défini pour l'article → Article affiché en alerte
 
 **Fichier :** `src/data/dashboard.js`
 
-**Fonction :** `fetchAlertArticles()` — filtre côté JS après requête
+**Calcul situé à la ligne :** ~33
 
-**Ligne approximative :** ~33
+**Variables depuis les Réglages :** non — le seuil est défini article par article dans le Catalogue
 
-**Variables depuis app_settings :** non — le seuil est défini article par article dans `articles.low_stock_threshold`
+**Modifiable sans code :** oui — en modifiant le "Seuil d'alerte stock" directement dans la fiche article du Catalogue
 
-**Modifiable sans code :** oui — en modifiant `low_stock_threshold` dans le catalogue pour chaque article
-
-**Risque modification :** faible
+**Risque de modification :** faible
 
 **Pourquoi ce risque :** Ne touche qu'à l'affichage des alertes, pas au stock réel.
 
-**Dépend de :** vue SQL `current_stock`, colonne `articles.low_stock_threshold`
+**Dépend de :** le seuil d'alerte défini pour chaque article
 
 ---
 
-## 5. Couleur du KPI "Écarts du mois" (Dashboard)
+## 5. Couleur du KPI "Écarts du mois" (tableau de bord)
 
-**Description :** Détermine la couleur du KPI des écarts constatés ce mois-ci : vert (zéro), orange (écart présent mais sous le seuil), rouge (écart au-dessus du seuil).
+**Description :** Le carré "Écarts du mois" sur le tableau de bord change de couleur selon la gravité des pertes constatées ce mois-ci.
 
 **Formule :**
-- Écart = 0 → vert
-- 0 < Écart < Seuil d'alerte valeur → orange
-- Écart ≥ Seuil d'alerte valeur → rouge
+- Aucun écart → vert
+- Écart présent mais en dessous du seuil configuré → orange
+- Écart supérieur ou égal au seuil configuré → rouge
 
 **Fichier :** `src/pages/Dashboard.jsx`
 
-**Fonction :** expression ternaire dans le JSX de `KpiCard` "Écarts du mois"
+**Calcul situé à la ligne :** ~162
 
-**Ligne approximative :** ~162
-
-**Variables depuis app_settings :** **oui** — `seuil_ecart_valeur` (valeur par défaut : 500 MAD)
+**Variables depuis les Réglages :** **oui** — `seuil_ecart_valeur` (valeur par défaut : 500 MAD)
 
 **Modifiable sans code :** **oui** — via Paramètres → Réglages → "Seuil valeur écart"
 
-**Risque modification :** faible
+**Risque de modification :** faible
 
-**Pourquoi ce risque :** Ne touche qu'à l'affichage de la couleur, pas au calcul des écarts.
+**Pourquoi ce risque :** Ne touche qu'à la couleur affichée, pas au calcul des écarts lui-même.
 
-**Dépend de :** Logique n°6 (calcul des écarts du mois, fait en SQL via `get_dashboard_stats`)
-
----
-
-## 6. Calcul des écarts du mois (Dashboard)
-
-**Description :** Somme la valeur financière de tous les écarts constatés lors des événements clôturés ce mois-ci.
-
-**Formule :** calculé en SQL par la RPC `get_dashboard_stats` — non recalculé côté React
-
-**Fichier :** `src/data/dashboard.js` (appel) + RPC SQL `get_dashboard_stats`
-
-**Fonction :** `fetchDashboardStats()`
-
-**Ligne approximative :** `dashboard.js` ~4
-
-**Variables depuis app_settings :** non
-
-**Modifiable sans code :** non
-
-**Risque modification :** élevé
-
-**Pourquoi ce risque :** Toute modification de la RPC SQL impacte directement le KPI affiché sur le Dashboard.
-
-**Dépend de :** table `stock_movements` (type `perte`), logique n°5 (couleur)
+**Dépend de :** Logique n°6 (calcul du montant des écarts)
 
 ---
 
-## 7. Valeur totale prélevée (Bon de prélèvement)
+## 6. Calcul du total des écarts du mois (tableau de bord)
 
-**Description :** Calcule la valeur financière totale de tous les articles prélevés pour un événement, affichée sur le bon imprimable.
+**Description :** Chaque mois, la base de données additionne la valeur de tous les articles perdus ou non retournés lors des événements clôturés. C'est ce montant qui s'affiche dans le KPI "Écarts du mois".
 
-**Formule :** Somme de (Quantité prélevée × Dernier prix d'achat) pour chaque article = Valeur totale prélevée
+**Formule :** calculé directement par la base de données — non recalculé par l'application
 
-**Fichier :** `src/pages/Evenements.jsx`
+**Fichier :** `src/data/dashboard.js` (l'application demande le résultat à la base de données)
 
-**Fonction :** `aggregated.reduce(...)` dans `BonPrelevement`
+**Calcul situé à la ligne :** ~4
 
-**Ligne approximative :** ~55
-
-**Variables depuis app_settings :** non
+**Variables depuis les Réglages :** non
 
 **Modifiable sans code :** non
 
-**Risque modification :** modéré
+**Risque de modification :** élevé
 
-**Pourquoi ce risque :** Utilise `last_purchase_price` (et non le CMP) — choix intentionnel pour le budget prévisionnel événement, à ne pas confondre avec la valorisation dépôt.
+**Pourquoi ce risque :** Ce calcul est fait dans la base de données — toute modification nécessite une intervention technique et impacte directement le tableau de bord.
 
-**Dépend de :** champ `articles.last_purchase_price`
+**Dépend de :** les mouvements de stock de type "perte" enregistrés lors des clôtures d'événements, Logique n°5 (couleur du KPI)
 
 ---
 
-## 8. Valeur totale des prélèvements actifs (Détail événement)
+## 7. Valeur totale prélevée (bon de prélèvement imprimable)
 
-**Description :** Affiche la valeur financière de tout ce qui a été prélevé pour un événement en cours, dans l'interface de gestion de l'événement.
+**Description :** Sur le bon de prélèvement imprimable, chaque article prélevé est valorisé avec son dernier prix d'achat connu. La somme de tous ces montants donne la valeur totale prélevée pour l'événement.
 
-**Formule :** Somme de (Quantité prélevée agrégée × Dernier prix d'achat) pour chaque article
+**Formule :** Addition de (Quantité prélevée × Dernier prix d'achat) pour chaque article = Valeur totale prélevée
 
-**Fichier :** `src/pages/Evenements.jsx`
+**Note importante :** Ce calcul utilise le dernier prix d'achat — pas le coût moyen pondéré. C'est intentionnel : on s'en sert pour estimer le budget de l'événement, pas pour valoriser le stock du dépôt.
 
-**Fonction :** `aggregatedWithdrawals.reduce(...)` nommé `totalWithdrawValue`
+**Fichier :** `src/pages/Evenements.jsx` — section "Bon de prélèvement"
 
-**Ligne approximative :** ~607
+**Calcul situé à la ligne :** ~55
 
-**Variables depuis app_settings :** non
+**Variables depuis les Réglages :** non
 
 **Modifiable sans code :** non
 
-**Risque modification :** faible
+**Risque de modification :** modéré
+
+**Pourquoi ce risque :** Changer la base de prix (ex. utiliser le coût moyen) modifierait les montants affichés sur tous les bons imprimés.
+
+**Dépend de :** le dernier prix d'achat de chaque article
+
+---
+
+## 8. Valeur totale des prélèvements en cours (détail événement)
+
+**Description :** Dans la fiche d'un événement en cours, l'application affiche la valeur financière totale de tout ce qui a déjà été sorti du dépôt pour cet événement.
+
+**Formule :** Addition de (Quantité totale prélevée par article × Dernier prix d'achat) = Valeur totale prélevée affichée dans la fiche événement
+
+**Fichier :** `src/pages/Evenements.jsx` — section détail événement
+
+**Calcul situé à la ligne :** ~607
+
+**Variables depuis les Réglages :** non
+
+**Modifiable sans code :** non
+
+**Risque de modification :** faible
 
 **Pourquoi ce risque :** Affichage uniquement, ne modifie pas le stock.
 
-**Dépend de :** Logique n°7 (même base de calcul), champ `articles.last_purchase_price`
+**Dépend de :** Logique n°7 (même base de calcul), dernier prix d'achat de chaque article
 
 ---
 
-## 9. Calcul des écarts par article (Retours événement)
+## 9. Calcul des écarts par article (saisie des retours)
 
-**Description :** Pour chaque article prélevé lors d'un événement, calcule la différence entre ce qui a été sorti du dépôt et ce qui est revenu.
+**Description :** Lors de la saisie des retours d'un événement, pour chaque article, l'application compare ce qui est sorti du dépôt avec ce qui est revenu. La différence est l'écart. Si tout est revenu (ou plus), l'écart est zéro — jamais négatif.
 
-**Formule :** Quantité prélevée − Quantité retournée = Écart (plancher à 0 — jamais négatif)
+**Formule :** Quantité prélevée − Quantité retournée = Écart (minimum 0)
 
-**Fichier :** `src/pages/Evenements.jsx`
+**Fichier :** `src/pages/Evenements.jsx` — section retours
 
-**Fonction :** `useMemo(...)` nommé `rows` dans `RetourSection`
+**Calcul situé à la ligne :** ~425
 
-**Ligne approximative :** ~425
-
-**Variables depuis app_settings :** non
+**Variables depuis les Réglages :** non
 
 **Modifiable sans code :** non
 
-**Risque modification :** modéré
+**Risque de modification :** modéré
 
-**Pourquoi ce risque :** Un écart calculé à tort génère un mouvement de stock `perte` incorrect et fausse les statistiques du mois.
+**Pourquoi ce risque :** Un écart mal calculé génère un enregistrement de perte incorrect dans l'historique du stock et fausse les statistiques du mois.
 
-**Dépend de :** logique n°10 (valeur monétaire de l'écart)
+**Dépend de :** Logique n°10 (conversion de l'écart en valeur financière)
 
 ---
 
-## 10. Valeur monétaire des écarts (Retours événement)
+## 10. Valeur financière des écarts (bon de retour)
 
-**Description :** Traduit les écarts en unités (articles manquants) en valeur financière, affichée sur le bon de retour et dans le récap.
+**Description :** Les écarts en quantité (articles manquants) sont convertis en valeur financière pour le bon de retour et le récapitulatif. On utilise le dernier prix d'achat de chaque article.
 
-**Formule :** Somme de (Écart en unités × Dernier prix d'achat) pour chaque article = Valeur totale des écarts
+**Formule :** Addition de (Écart en quantité × Dernier prix d'achat) pour chaque article = Valeur totale des écarts
 
-**Fichier :** `src/pages/Evenements.jsx`
+**Note importante :** Si le prix d'achat d'un article change après la clôture d'un événement, la valeur affichée sur les anciens bons de retour n'est pas recalculée rétroactivement.
 
-**Fonction :** `rows.reduce(...)` nommé `totalEcartValue` dans `RetourSection` et `BonRetour`
+**Fichier :** `src/pages/Evenements.jsx` — sections retours et bon de retour
 
-**Ligne approximative :** ~434 (RetourSection) et ~139 (BonRetour)
+**Calcul situé à la ligne :** ~434 (saisie retours) et ~139 (bon imprimable)
 
-**Variables depuis app_settings :** non
+**Variables depuis les Réglages :** non
 
 **Modifiable sans code :** non
 
-**Risque modification :** modéré
+**Risque de modification :** modéré
 
-**Pourquoi ce risque :** Utilise `last_purchase_price` — cohérent avec la valorisation événement, mais toute modification du prix d'achat d'un article après l'événement n'est pas rétroactive.
+**Pourquoi ce risque :** Changer la base de prix modifierait tous les montants affichés sur les bons de retour.
 
-**Dépend de :** Logique n°9 (écart en unités), champ `articles.last_purchase_price`
+**Dépend de :** Logique n°9 (écart en quantité), dernier prix d'achat de chaque article
 
 ---
 
-## 11. TTL du cache Dashboard
+## 11. Durée avant rechargement automatique du tableau de bord
 
-**Description :** Durée pendant laquelle les données du Dashboard sont mises en cache avant d'être rechargées automatiquement depuis la base de données.
+**Description :** Le tableau de bord ne se reconnecte pas à la base de données à chaque seconde. Il garde les données en mémoire pendant un certain nombre de secondes avant de les actualiser automatiquement. Cette durée est configurable dans les Réglages.
 
-**Formule :** Valeur en secondes × 1000 = Durée de validité du cache en millisecondes
+**Formule :** Valeur configurée (en secondes) × 1 000 = durée réelle de mise en mémoire (format interne de l'application)
 
 **Fichier :** `src/pages/Dashboard.jsx`
 
-**Fonction :** `load()` — `const ttl = Number(cfg.dashboard_cache_ttl ?? 120) * 1000`
+**Calcul situé à la ligne :** ~77
 
-**Ligne approximative :** ~77
-
-**Variables depuis app_settings :** **oui** — `dashboard_cache_ttl` (valeur par défaut : 120 secondes)
+**Variables depuis les Réglages :** **oui** — `dashboard_cache_ttl` (valeur par défaut : 120 secondes, soit 2 minutes)
 
 **Modifiable sans code :** **oui** — via Paramètres → Réglages → "Durée du cache Dashboard"
 
-**Risque modification :** faible
+**Risque de modification :** faible
 
-**Pourquoi ce risque :** Une valeur trop basse ralentit l'app (requêtes fréquentes), une valeur trop haute retarde l'affichage des données récentes.
+**Pourquoi ce risque :** Une valeur trop courte ralentit l'application (trop de connexions à la base de données). Une valeur trop longue affiche des données en retard.
 
 ---
 
-## 12. Total d'un achat (formulaire Achats)
+## 12. Total affiché lors de la saisie d'un achat
 
-**Description :** Calcule et affiche en temps réel le montant total d'un achat pendant la saisie du formulaire.
+**Description :** Dans le formulaire de création d'un achat, l'application affiche en temps réel le montant total pour que tu puisses vérifier avant d'enregistrer.
 
-**Formule :** Quantité × Prix unitaire = Total de l'achat
+**Formule :** Quantité saisie × Prix unitaire saisi = Total affiché
+
+**Note :** Ce total affiché est aussi recalculé par la base de données au moment de l'enregistrement. Les deux calculs sont identiques.
 
 **Fichier :** `src/pages/Achats.jsx`
 
-**Fonction :** expression inline dans `PurchaseModal` JSX
+**Calcul situé à la ligne :** ~191
 
-**Ligne approximative :** ~191
-
-**Variables depuis app_settings :** non
+**Variables depuis les Réglages :** non
 
 **Modifiable sans code :** non
 
-**Risque modification :** faible
+**Risque de modification :** faible
 
-**Pourquoi ce risque :** Affichage uniquement — le vrai calcul est fait en SQL (`total_price GENERATED ALWAYS AS (quantity * unit_price) STORED`).
-
-**Dépend de :** colonne SQL `purchases.total_price` (calcul identique mais côté base de données)
+**Pourquoi ce risque :** Affichage uniquement pendant la saisie — l'enregistrement réel est fait par la base de données.
 
 ---
 
-## 13. Valeur par catégorie (Dépôt)
+## 13. Valeur par catégorie (page Dépôt)
 
-**Description :** Affiche la valeur totale du stock pour chaque catégorie d'articles dans la page Dépôt.
+**Description :** Dans la page Dépôt, chaque catégorie d'articles affiche la somme de la valeur de tous ses articles.
 
-**Formule :** Somme des valeurs de stock de tous les articles d'une même catégorie = Valeur de la catégorie
+**Formule :** Addition des valeurs de stock de tous les articles d'une même catégorie = Valeur affichée pour la catégorie
 
 **Fichier :** `src/pages/Depot.jsx`
 
-**Fonction :** `items.reduce(...)` dans le rendu JSX par catégorie
+**Calcul situé à la ligne :** ~195
 
-**Ligne approximative :** ~195
-
-**Variables depuis app_settings :** non
+**Variables depuis les Réglages :** non
 
 **Modifiable sans code :** non
 
-**Risque modification :** faible
+**Risque de modification :** faible
 
-**Pourquoi ce risque :** Sous-total d'affichage uniquement, dérivé de la logique n°1.
+**Pourquoi ce risque :** Sous-total d'affichage uniquement, directement dérivé de la logique n°1.
 
-**Dépend de :** Logique n°1 (valeur totale du stock), logique n°2 (CMP)
+**Dépend de :** Logique n°1 (valeur totale du stock), Logique n°2 (coût moyen pondéré)
 
 ---
 
-## 14. Pré-remplissage inventaire depuis le stock actuel
+## 14. Pré-remplissage automatique d'un inventaire
 
-**Description :** Remplit automatiquement les champs de quantité vides d'un inventaire en cours avec les quantités actuelles du stock.
+**Description :** Le bouton ⚡ Pré-remplir copie les quantités actuellement disponibles au dépôt dans les cases vides de l'inventaire en cours. Les cases déjà remplies manuellement ne sont pas modifiées.
 
-**Formule :** Si quantité saisie = vide → remplacer par quantité du stock actuel (depuis la vue `current_stock`)
+**Formule :** Si la case est vide → la remplir avec la quantité actuelle du stock. Si la case est déjà remplie → ne rien toucher.
 
 **Fichier :** `src/pages/Inventaire.jsx`
 
-**Fonction :** `prefillFromStock()`
+**Calcul situé à la ligne :** ~139
 
-**Ligne approximative :** ~139
-
-**Variables depuis app_settings :** non
+**Variables depuis les Réglages :** non
 
 **Modifiable sans code :** non
 
-**Risque modification :** modéré
+**Risque de modification :** modéré
 
-**Pourquoi ce risque :** Si utilisé sans contrôle, efface les saisies manuelles déjà faites (seuls les champs vides sont touchés — protection en place).
+**Pourquoi ce risque :** Si la protection "ne touche pas les cases déjà remplies" était retirée, toute saisie manuelle faite avant de cliquer sur le bouton serait perdue.
 
-**Dépend de :** vue SQL `current_stock`
+**Dépend de :** les quantités actuelles du dépôt au moment du clic
 
 ---
 
-## Résumé des variables app_settings utilisées dans les calculs
+## Résumé — Ce qu'on peut changer sans toucher au code
 
-| Clé app_settings | Valeur par défaut | Utilisée dans | Logique n° |
-|---|---|---|---|
-| `dashboard_cache_ttl` | 120 (secondes) | Dashboard — durée cache | 11 |
-| `seuil_ecart_valeur` | 500 (MAD) | Dashboard — couleur KPI écarts | 5 |
+| Ce qu'on peut régler | Où le changer | Logique concernée |
+|---|---|---|
+| Seuil de couleur rouge pour les écarts du mois | Paramètres → Réglages → "Seuil valeur écart" | n°5 |
+| Durée avant rechargement du tableau de bord | Paramètres → Réglages → "Durée du cache Dashboard" | n°11 |
+| Seuil d'alerte stock d'un article | Catalogue → fiche article → "Seuil d'alerte stock" | n°4 |
 
-Toutes les autres logiques utilisent des valeurs codées en dur ou des données issues directement de la base de données.
+Tout le reste nécessite une modification du code ou de la base de données.
