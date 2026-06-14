@@ -4,7 +4,7 @@ import {
   Trash2, Printer, PackageMinus, PackageCheck, CheckCircle2,
   Clock, Lock, X, UserPlus, AlertTriangle, ClipboardList,
 } from 'lucide-react';
-import BriefingSection1 from '../components/briefing/BriefingSection1';
+import BriefingTabs from '../components/briefing/BriefingTabs';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import usePermission from '../hooks/usePermission';
@@ -805,7 +805,7 @@ const EvenementDetail = ({ eventId, onBack }) => {
       {/* Contenu onglet Briefing */}
       {tab === 'briefing' && (
         <section>
-          <BriefingSection1 eventId={eventId} />
+          <BriefingTabs eventId={eventId} />
         </section>
       )}
 
