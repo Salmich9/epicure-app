@@ -294,7 +294,7 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
                               value={c.qty}
                               onChange={(e) => setQty(a.id, e.target.value)}
                               onBlur={() => handleBlurQty(a.id)}
-                              placeholder="0"
+                              placeholder=""
                               className="w-24 h-10 text-right px-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                             />
                             {saving[a.id] && (
