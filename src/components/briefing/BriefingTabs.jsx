@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { cn } from '../../lib/utils';
 import BriefingSection1 from './BriefingSection1';
 import BriefingSection2 from './BriefingSection2';
+import BriefingSection3 from './BriefingSection3';
 
 const SECTIONS = [
-  { id: 's1', label: '1. Informations client', Component: BriefingSection1 },
+  { id: 's1', label: '1. Informations client',    Component: BriefingSection1 },
   { id: 's2', label: '2. Configuration des bars', Component: BriefingSection2 },
+  { id: 's3', label: '3. Menu par bar',           Component: BriefingSection3 },
 ];
 
 const BriefingTabs = ({ eventId }) => {
