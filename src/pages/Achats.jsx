@@ -1,36 +1,135 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Building2, ShoppingCart } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Search, Building2, ShoppingCart, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import usePermission from '../hooks/usePermission';
 import { fetchPurchases, createPurchase, fetchSuppliers, createSupplier, updateSupplier } from '../data/purchases';
 import { fetchArticles } from '../data/articles';
+import ArticleFormModal from '../components/ArticleFormModal';
 import Modal from '../components/ui/Modal';
 import Button from '../components/ui/Button';
 import Input, { Select } from '../components/ui/Input';
 import { PageLoader } from '../components/ui/Spinner';
 import { formatMAD, formatQty, formatDate } from '../lib/utils';
 
+// ── Combobox article avec création à la volée ─────────────────
+const ArticleCombobox = ({ articles, value, onChange, onRequestCreate }) => {
+  const [query,  setQuery]  = useState('');
+  const [open,   setOpen]   = useState(false);
+  const ref = useRef(null);
+
+  // Sync le label affiché quand value change depuis l'extérieur
+  useEffect(() => {
+    const art = articles.find((a) => a.id === value);
+    setQuery(art ? art.name : '');
+  }, [value, articles]);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = query
+    ? articles.filter((a) => a.name.toLowerCase().includes(query.toLowerCase()))
+    : articles;
+
+  const exactMatch = articles.some((a) => a.name.toLowerCase() === query.toLowerCase());
+  const showCreate = query.trim().length > 0 && !exactMatch;
+
+  const handleSelect = (art) => {
+    onChange(art);
+    setQuery(art.name);
+    setOpen(false);
+  };
+
+  const handleCreate = () => {
+    setOpen(false);
+    onRequestCreate(query.trim());
+  };
+
+  return (
+    <div className="flex flex-col gap-1" ref={ref}>
+      <label className="text-sm font-medium text-[var(--color-text)]">Article *</label>
+      <div className="relative">
+        <input
+          className="w-full h-11 pl-3 pr-9 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          placeholder="Rechercher ou créer un article…"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); onChange(null); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+        />
+        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-faint)] pointer-events-none" />
+
+        {open && (
+          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-[var(--color-border)] rounded-[var(--radius-md)] shadow-lg max-h-56 overflow-y-auto">
+            {filtered.length === 0 && !showCreate && (
+              <p className="px-4 py-3 text-sm text-[var(--color-text-faint)]">Aucun article trouvé.</p>
+            )}
+            {filtered.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-warm-50 flex items-center justify-between"
+                onMouseDown={(e) => { e.preventDefault(); handleSelect(a); }}
+              >
+                <span className="font-medium text-[var(--color-text)]">{a.name}</span>
+                <span className="text-xs text-[var(--color-text-faint)]">{a.units?.abbreviation}</span>
+              </button>
+            ))}
+            {showCreate && (
+              <button
+                type="button"
+                className="w-full text-left px-4 py-2.5 text-sm text-primary font-medium hover:bg-primary-50 border-t border-[var(--color-border)] flex items-center gap-2"
+                onMouseDown={(e) => { e.preventDefault(); handleCreate(); }}
+              >
+                <Plus size={14} />
+                Créer «{query.trim()}»
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ── Modal nouvel achat ────────────────────────────────────────
-const PurchaseModal = ({ open, onClose, onSaved, articles, suppliers }) => {
+const PurchaseModal = ({ open, onClose, onSaved, articles, suppliers, onArticleCreated }) => {
   const { user } = useAuth();
   const [form, setForm] = useState({
-    article_id: '', supplier_id: '', quantity: '', unit_price: '', date: new Date().toISOString().split('T')[0], note: '',
+    article_id: '', supplier_id: '', quantity: '', unit_price: '',
+    date: new Date().toISOString().split('T')[0], note: '',
   });
-  const [saving, setSaving] = useState(false);
+  const [saving,          setSaving]          = useState(false);
+  const [articleModal,    setArticleModal]    = useState(false);
+  const [newArticleName,  setNewArticleName]  = useState('');
+
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
-  const handleArticleChange = (id) => {
-    const art = articles.find((a) => a.id === id);
-    set('article_id', id);
-    if (art?.last_purchase_price) set('unit_price', String(art.last_purchase_price));
+  const handleArticleSelect = (art) => {
+    if (!art) { set('article_id', ''); return; }
+    set('article_id', art.id);
+    if (art.last_purchase_price) set('unit_price', String(art.last_purchase_price));
+  };
+
+  const handleRequestCreate = (name) => {
+    setNewArticleName(name);
+    setArticleModal(true);
+  };
+
+  const handleArticleCreated = async (art) => {
+    await onArticleCreated();
+    // Sélectionner automatiquement le nouvel article
+    set('article_id', art.id);
+    if (art.last_purchase_price) set('unit_price', String(art.last_purchase_price));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.article_id)           { toast.error('Article requis'); return; }
+    if (!form.article_id)                    { toast.error('Article requis'); return; }
     if (!form.quantity || form.quantity <= 0) { toast.error('Quantité requise'); return; }
-    if (!form.unit_price)           { toast.error('Prix unitaire requis'); return; }
+    if (!form.unit_price)                    { toast.error('Prix unitaire requis'); return; }
     setSaving(true);
     try {
       await createPurchase({
@@ -54,51 +153,63 @@ const PurchaseModal = ({ open, onClose, onSaved, articles, suppliers }) => {
   const selectedArt = articles.find((a) => a.id === form.article_id);
 
   return (
-    <Modal open={open} onClose={onClose} title="Nouvel achat" size="md">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <Select label="Article *" value={form.article_id} onChange={(e) => handleArticleChange(e.target.value)}>
-          <option value="">— Choisir un article —</option>
-          {articles.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-        </Select>
-
-        <Select label="Fournisseur" value={form.supplier_id} onChange={(e) => set('supplier_id', e.target.value)}>
-          <option value="">— Aucun fournisseur —</option>
-          {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </Select>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            label={`Quantité *${selectedArt ? ` (${selectedArt.units?.abbreviation ?? ''})` : ''}`}
-            type="number" min="0.001" step="0.001"
-            value={form.quantity}
-            onChange={(e) => set('quantity', e.target.value)}
-            placeholder="0"
+    <>
+      <Modal open={open} onClose={onClose} title="Nouvel achat" size="md">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <ArticleCombobox
+            articles={articles}
+            value={form.article_id}
+            onChange={handleArticleSelect}
+            onRequestCreate={handleRequestCreate}
           />
-          <Input
-            label="Prix unitaire (MAD) *"
-            type="number" min="0" step="0.01"
-            value={form.unit_price}
-            onChange={(e) => set('unit_price', e.target.value)}
-            placeholder="0.00"
-          />
-        </div>
 
-        {form.quantity && form.unit_price && (
-          <div className="bg-primary-50 rounded-[var(--radius-md)] px-4 py-2 flex justify-between items-center">
-            <span className="text-sm text-[var(--color-text-muted)]">Total</span>
-            <span className="font-semibold text-primary">{formatMAD(parseFloat(form.quantity) * parseFloat(form.unit_price))}</span>
+          <Select label="Fournisseur" value={form.supplier_id} onChange={(e) => set('supplier_id', e.target.value)}>
+            <option value="">— Aucun fournisseur —</option>
+            {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </Select>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label={`Quantité *${selectedArt ? ` (${selectedArt.units?.abbreviation ?? ''})` : ''}`}
+              type="number" min="0.001" step="0.001"
+              value={form.quantity}
+              onChange={(e) => set('quantity', e.target.value)}
+              placeholder="0"
+            />
+            <Input
+              label="Prix unitaire (MAD) *"
+              type="number" min="0" step="0.01"
+              value={form.unit_price}
+              onChange={(e) => set('unit_price', e.target.value)}
+              placeholder="0.00"
+            />
           </div>
-        )}
 
-        <Input label="Date *" type="date" value={form.date} onChange={(e) => set('date', e.target.value)} />
-        <Input label="Note (optionnel)" value={form.note} onChange={(e) => set('note', e.target.value)} placeholder="Ex : Livraison urgente" />
+          {form.quantity && form.unit_price && (
+            <div className="bg-primary-50 rounded-[var(--radius-md)] px-4 py-2 flex justify-between items-center">
+              <span className="text-sm text-[var(--color-text-muted)]">Total</span>
+              <span className="font-semibold text-primary">{formatMAD(parseFloat(form.quantity) * parseFloat(form.unit_price))}</span>
+            </div>
+          )}
 
-        <div className="flex gap-3 pt-2">
-          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Annuler</Button>
-          <Button type="submit" className="flex-1" loading={saving}>Enregistrer</Button>
-        </div>
-      </form>
-    </Modal>
+          <Input label="Date *" type="date" value={form.date} onChange={(e) => set('date', e.target.value)} />
+          <Input label="Note (optionnel)" value={form.note} onChange={(e) => set('note', e.target.value)} placeholder="Ex : Livraison urgente" />
+
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Annuler</Button>
+            <Button type="submit" className="flex-1" loading={saving}>Enregistrer</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Création d'article à la volée — même composant que le catalogue */}
+      <ArticleFormModal
+        open={articleModal}
+        onClose={() => setArticleModal(false)}
+        onCreated={handleArticleCreated}
+        initial={{ name: newArticleName }}
+      />
+    </>
   );
 };
 
@@ -168,6 +279,12 @@ const Achats = () => {
       setPurchases(p); setArticles(a); setSuppliers(s);
     } catch { toast.error('Erreur de chargement'); }
     finally { setLoading(false); }
+  };
+
+  // Recharge uniquement la liste d'articles (après création à la volée)
+  const reloadArticles = async () => {
+    const a = await fetchArticles();
+    setArticles(a);
   };
 
   useEffect(() => { load(); }, []);
@@ -296,6 +413,7 @@ const Achats = () => {
         onSaved={load}
         articles={articles}
         suppliers={suppliers.filter((s) => s.active)}
+        onArticleCreated={reloadArticles}
       />
       <SupplierModal
         open={modalSupplier}
