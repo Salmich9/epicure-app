@@ -10,6 +10,7 @@ import {
   fetchDashboardStats, fetchUpcomingEvents,
   fetchAlertArticles, fetchRecentActivity,
 } from '../data/dashboard';
+import { fetchSettings } from '../data/settings';
 import { withCache } from '../lib/cache';
 import { PageLoader } from '../components/ui/Spinner';
 import { formatMAD, formatQty, formatDate, formatDateTime } from '../lib/utils';
@@ -65,12 +66,15 @@ const Dashboard = () => {
   const [events,   setEvents]   = useState([]);
   const [alerts,   setAlerts]   = useState([]);
   const [activity, setActivity] = useState([]);
+  const [settings, setSettings] = useState({});
   const [loading,  setLoading]  = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = async (force = false) => {
     try {
-      const ttl = 2 * 60 * 1000; // 2 min cache
+      const cfg = await fetchSettings();
+      setSettings(cfg);
+      const ttl = Number(cfg.dashboard_cache_ttl ?? 120) * 1000;
       const [s, e, a, ac] = await Promise.all([
         force ? fetchDashboardStats()    : withCache('dashboard_stats',    fetchDashboardStats,    ttl),
         force ? fetchUpcomingEvents()    : withCache('dashboard_events',   fetchUpcomingEvents,    ttl),
@@ -154,7 +158,13 @@ const Dashboard = () => {
           label="Écarts du mois"
           value={formatMAD(stats?.ecarts_mois ?? 0)}
           sub="pertes constatées"
-          color={stats?.ecarts_mois > 0 ? 'bg-red-500' : 'bg-green-500'}
+          color={
+            (stats?.ecarts_mois ?? 0) >= Number(settings.seuil_ecart_valeur ?? 500)
+              ? 'bg-red-500'
+              : (stats?.ecarts_mois ?? 0) > 0
+              ? 'bg-orange-400'
+              : 'bg-green-500'
+          }
           onClick={() => navigate('/historique')}
         />
       </div>
