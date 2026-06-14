@@ -11,6 +11,7 @@ import Inventaire from './pages/Inventaire';
 import Evenements from './pages/Evenements';
 import Parametres from './pages/Parametres';
 import Historique from './pages/Historique';
+import Achats     from './pages/Achats';
 
 // ── Guard : redirige vers /login si non authentifié ──────────
 const ProtectedRoute = ({ children }) => {
@@ -50,6 +51,7 @@ const AppRoutes = () => (
       <Route path="evenements" element={<Evenements />} />
       <Route path="parametres" element={<Parametres />} />
       <Route path="historique" element={<Historique />} />
+      <Route path="achats"     element={<Achats />} />
     </Route>
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>

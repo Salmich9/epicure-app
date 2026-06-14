@@ -281,6 +281,7 @@ const ALL_KEYS = [
   'depot.read',
   'events.read','events.create','events.manage',
   'settings.read','settings.manage',
+  'purchases.read','purchases.create',
   'users.manage','permissions.manage','historique.read',
 ];
 
