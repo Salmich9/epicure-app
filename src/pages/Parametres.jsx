@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, ChevronUp, ChevronDown, ToggleLeft, ToggleRight, Key, UserPlus } from 'lucide-react';
+import { Plus, Pencil, ChevronUp, ChevronDown, ToggleLeft, ToggleRight, Key, UserPlus, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import usePermission from '../hooks/usePermission';
@@ -7,6 +7,7 @@ import { fetchCategories, createCategory, updateCategory, reorderCategories } fr
 import { fetchUnits, createUnit, updateUnit } from '../data/units';
 import { fetchUsers, fetchRoles, createUser, updateUser, toggleUserActive } from '../data/users';
 import { fetchAllPermissions, updatePermission } from '../data/permissions';
+import { fetchSettings, updateSetting } from '../data/settings';
 import Modal from '../components/ui/Modal';
 import Button from '../components/ui/Button';
 import Input, { Select } from '../components/ui/Input';
@@ -351,12 +352,81 @@ const PermissionsTab = () => {
   );
 };
 
+// ── Onglet Réglages ───────────────────────────────────────────
+const SETTINGS_META = [
+  { key: 'devise',              label: 'Devise',                      description: 'Devise affichée dans toute l\'app',          type: 'text' },
+  { key: 'taux_retour_alerte',  label: 'Taux de retour alerte (%)',   description: 'En dessous de ce taux, un événement est en alerte', type: 'number' },
+  { key: 'seuil_ecart_valeur',  label: 'Seuil écart significatif (MAD)', description: 'Au-delà, le KPI écarts passe au rouge',   type: 'number' },
+  { key: 'stock_alerte_defaut', label: 'Seuil stock alerte par défaut', description: 'Valeur pré-remplie pour les nouveaux articles', type: 'number' },
+  { key: 'dashboard_cache_ttl', label: 'Cache dashboard (secondes)',  description: 'Durée avant rechargement automatique des KPIs', type: 'number' },
+  { key: 'max_articles_panier', label: 'Max articles par panier',     description: 'Limite d\'articles différents par prélèvement', type: 'number' },
+];
+
+const ReglagesTab = () => {
+  const [values,  setValues]  = useState({});
+  const [loading, setLoading] = useState(true);
+  const [saving,  setSaving]  = useState({});
+
+  useEffect(() => {
+    fetchSettings()
+      .then(setValues)
+      .catch(() => toast.error('Erreur de chargement'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async (key) => {
+    setSaving((s) => ({ ...s, [key]: true }));
+    try {
+      await updateSetting(key, values[key]);
+      toast.success('Paramètre enregistré');
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setSaving((s) => ({ ...s, [key]: false }));
+    }
+  };
+
+  if (loading) return <PageLoader />;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {SETTINGS_META.map(({ key, label, description, type }) => (
+        <div key={key} className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-[var(--color-text)]">{label}</p>
+              <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{description}</p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <input
+                type={type}
+                value={values[key] ?? ''}
+                onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
+                className="w-28 h-9 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+              <button
+                onClick={() => handleSave(key)}
+                disabled={saving[key]}
+                className="h-9 w-9 flex items-center justify-center rounded-[var(--radius-md)] bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+                title="Enregistrer"
+              >
+                <Save size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 // ── Page Paramètres ───────────────────────────────────────────
 const TABS = [
   { id: 'categories',  label: 'Catégories',  perm: 'categories.manage' },
   { id: 'unites',      label: 'Unités',       perm: 'units.manage' },
   { id: 'utilisateurs',label: 'Utilisateurs', perm: 'settings.read' },
   { id: 'permissions', label: 'Permissions',  perm: 'permissions.manage' },
+  { id: 'reglages',    label: 'Réglages',     perm: 'settings.manage' },
 ];
 
 const Parametres = () => {
@@ -390,6 +460,7 @@ const Parametres = () => {
       {tab === 'unites'       && <UnitesTab />}
       {tab === 'utilisateurs' && <UtilisateursTab />}
       {tab === 'permissions'  && <PermissionsTab />}
+      {tab === 'reglages'     && <ReglagesTab />}
     </div>
   );
 };
