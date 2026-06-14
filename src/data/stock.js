@@ -15,6 +15,22 @@ export const fetchCurrentStock = async () => {
   return data;
 };
 
+// 10 derniers mouvements d'un article
+export const fetchArticleMovements = async (articleId, limit = 10) => {
+  const { data, error } = await supabase
+    .from('stock_movements')
+    .select(`
+      id, type, quantity, note, created_at,
+      users:created_by ( full_name ),
+      events:reference_id ( name )
+    `)
+    .eq('article_id', articleId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data;
+};
+
 // Valeur totale du dépôt
 export const fetchDepotTotalValue = async () => {
   const { data, error } = await supabase
