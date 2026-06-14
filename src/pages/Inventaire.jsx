@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Plus, ChevronRight, CheckCircle2, Clock, ArrowLeft, Pen } from 'lucide-react';
+import { Plus, ChevronRight, CheckCircle2, Clock, ArrowLeft, Pen, Zap } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import usePermission from '../hooks/usePermission';
@@ -133,6 +133,21 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
     setCounts((prev) => ({ ...prev, [articleId]: { ...prev[articleId], qty: val } }));
   };
 
+  // Pré-remplit toutes les quantités vides avec le stock actuel
+  const prefillFromStock = () => {
+    setCounts((prev) => {
+      const next = { ...prev };
+      articles.forEach((a) => {
+        if (!next[a.id]?.qty) {
+          const currentQty = Number(stock[a.id]?.quantity ?? 0);
+          next[a.id] = { ...next[a.id], qty: String(currentQty) };
+        }
+      });
+      return next;
+    });
+    toast.success('Quantités pré-remplies depuis le stock actuel');
+  };
+
   const handleBlurQty = async (articleId) => {
     if (inv?.status !== 'brouillon') return;
     const c = counts[articleId];
@@ -219,10 +234,17 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
               {formatMAD(inv.status === 'valide' ? inv.total_value : totalCurrent)}
             </p>
           </div>
-          {isDraft && canValidate && (
-            <Button onClick={() => setValidateOpen(true)} className="gap-2">
-              <Pen size={16} /> Signer
-            </Button>
+          {isDraft && (
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={prefillFromStock} className="gap-2">
+                <Zap size={16} /> Pré-remplir
+              </Button>
+              {canValidate && (
+                <Button onClick={() => setValidateOpen(true)} className="gap-2">
+                  <Pen size={16} /> Signer
+                </Button>
+              )}
+            </div>
           )}
         </div>
       </div>
