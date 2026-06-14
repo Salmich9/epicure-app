@@ -274,10 +274,13 @@ const UtilisateursTab = () => {
 
 // ── Onglet Permissions ────────────────────────────────────────
 const ALL_KEYS = [
+  'dashboard.read',
   'articles.read','articles.create','articles.update','articles.delete',
   'categories.manage','units.manage',
   'inventory.create','inventory.validate','inventory.read',
-  'depot.read','settings.read','settings.manage',
+  'depot.read',
+  'events.read','events.create','events.manage',
+  'settings.read','settings.manage',
   'users.manage','permissions.manage','historique.read',
 ];
 
