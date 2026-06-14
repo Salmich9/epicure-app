@@ -178,7 +178,7 @@ CREATE OR REPLACE FUNCTION verify_pin(p_pin TEXT)
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_user RECORD;
@@ -212,7 +212,7 @@ CREATE OR REPLACE FUNCTION set_user_pin(p_user_id UUID, p_pin TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 BEGIN
   UPDATE users
