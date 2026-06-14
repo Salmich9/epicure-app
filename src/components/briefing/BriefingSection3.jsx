@@ -31,13 +31,24 @@ const SelectOne = ({ options, value, onChange, small }) => (
 );
 
 // ── Combobox article avec stock live ─────────────────────────
+// categoryKeywords : tableau de mots-clés pour filtrer par nom de catégorie (insensible à la casse)
+// Ex : ['alcool', 'spiritueux'] → affiche uniquement les articles dont la catégorie contient ces mots
 
-const ArticleCombobox = ({ stock, value, onChange, placeholder }) => {
+const ArticleCombobox = ({ stock, value, onChange, placeholder, categoryKeywords }) => {
   const [query, setQuery] = useState('');
   const [open,  setOpen]  = useState(false);
   const ref = useRef(null);
 
-  const selected = stock.find((s) => s.article_id === value) ?? null;
+  const filteredStock = categoryKeywords?.length
+    ? stock.filter((s) => {
+        const cat = (s.categories?.name ?? '').toLowerCase();
+        return categoryKeywords.some((kw) => cat.includes(kw.toLowerCase()));
+      })
+    : stock;
+
+  const selected = filteredStock.find((s) => s.article_id === value)
+    ?? stock.find((s) => s.article_id === value)  // fallback si hors catégorie
+    ?? null;
 
   useEffect(() => {
     setQuery(selected ? selected.name : '');
@@ -49,7 +60,7 @@ const ArticleCombobox = ({ stock, value, onChange, placeholder }) => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const filtered = stock.filter((s) =>
+  const filtered = filteredStock.filter((s) =>
     s.name.toLowerCase().includes(query.toLowerCase())
   ).slice(0, 20);
 
@@ -154,19 +165,19 @@ const CocktailRow = ({ index, cocktail, stock, onChange, onRemove, canRemove }) 
           <SelectOne options={['Classique', 'Signature']} value={cocktail.type_carte} onChange={(v) => upd('type_carte', v)} small />
         </Field>
         <Field label="Alcool principal">
-          <ArticleCombobox stock={stock} value={cocktail.article_id} onChange={(v) => upd('article_id', v)} placeholder="Sélectionner l'alcool…" />
+          <ArticleCombobox stock={stock} value={cocktail.article_id} onChange={(v) => upd('article_id', v)} placeholder="Sélectionner l'alcool…" categoryKeywords={['alcool', 'spiritueux', 'whisky', 'vodka', 'rhum', 'gin', 'tequila', 'liqueur', 'bière', 'vin', 'champagne']} />
         </Field>
         <Field label="Nom / intitulé carte">
           <input className={baseInput} value={cocktail.nom_custom} onChange={(e) => upd('nom_custom', e.target.value)} placeholder="Ex : Mojito Maison, Signature Sunset…" />
         </Field>
         <Field label="Verre">
-          <ArticleCombobox stock={stock} value={cocktail.verre_id} onChange={(v) => upd('verre_id', v)} placeholder="Sélectionner le verre…" />
+          <ArticleCombobox stock={stock} value={cocktail.verre_id} onChange={(v) => upd('verre_id', v)} placeholder="Sélectionner le verre…" categoryKeywords={['verr', 'verre', 'verrerie', 'glass']} />
         </Field>
         <Field label="Glaçons">
           <SelectOne options={GLACONS_OPTS} value={cocktail.glacons} onChange={(v) => upd('glacons', v)} small />
         </Field>
         <Field label="Garnish">
-          <ArticleCombobox stock={stock} value={cocktail.garnish_id} onChange={(v) => upd('garnish_id', v)} placeholder="Sélectionner le garnish…" />
+          <ArticleCombobox stock={stock} value={cocktail.garnish_id} onChange={(v) => upd('garnish_id', v)} placeholder="Sélectionner le garnish…" categoryKeywords={['garnish', 'garniture', 'déco', 'deco', 'fruit', 'herbe']} />
         </Field>
         <Field label="Dosage alcool">
           <SelectOne options={DOSAGES} value={cocktail.dosage} onChange={(v) => upd('dosage', v)} small />
@@ -251,7 +262,7 @@ const ShotRow = ({ index, shot, stock, cocktails, onChange, onRemove, canRemove 
 
       {shot.lie_cocktail === 'Non — indépendant' && (
         <Field label="Article (alcool shot)">
-          <ArticleCombobox stock={stock} value={shot.article_id} onChange={(v) => upd('article_id', v)} placeholder="Sélectionner l'alcool…" />
+          <ArticleCombobox stock={stock} value={shot.article_id} onChange={(v) => upd('article_id', v)} placeholder="Sélectionner l'alcool…" categoryKeywords={['alcool', 'spiritueux', 'whisky', 'vodka', 'rhum', 'gin', 'tequila', 'liqueur']} />
         </Field>
       )}
 
