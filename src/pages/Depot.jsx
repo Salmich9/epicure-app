@@ -211,7 +211,7 @@ const Depot = () => {
                       <th className="px-4 py-3 text-left">Article</th>
                       <th className="px-4 py-3 text-left hidden sm:table-cell">Type</th>
                       <th className="px-4 py-3 text-right">Quantité</th>
-                      <th className="px-4 py-3 text-right hidden md:table-cell">Prix unit.</th>
+                      <th className="px-4 py-3 text-right hidden md:table-cell">CMP</th>
                       <th className="px-4 py-3 text-right">Valeur</th>
                       <th className="px-4 py-3 text-right w-10"></th>
                     </tr>
@@ -248,7 +248,7 @@ const Depot = () => {
                             {isLow && <TrendingDown size={12} className="inline ml-1 text-accent" />}
                           </td>
                           <td className="px-4 py-3 text-right text-[var(--color-text-muted)] hidden md:table-cell">
-                            {formatMAD(item.last_purchase_price)}
+                            {formatMAD(item.average_cost)}
                           </td>
                           <td className="px-4 py-3 text-right font-medium text-[var(--color-text)]">
                             {formatMAD(item.stock_value)}

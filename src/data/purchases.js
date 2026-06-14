@@ -74,11 +74,18 @@ export const createPurchase = async (fields, actorId) => {
     });
   if (mvErr) throw mvErr;
 
-  // Met à jour le dernier prix d'achat de l'article
+  // Met à jour last_purchase_price (référence budget événements)
+  // et recalcule le CMP (average_cost) de façon atomique via RPC
   await supabase
     .from('articles')
     .update({ last_purchase_price: fields.unit_price })
     .eq('id', fields.article_id);
+
+  await supabase.rpc('recalculate_average_cost', {
+    p_article_id: fields.article_id,
+    p_qty_bought: fields.quantity,
+    p_unit_price: fields.unit_price,
+  });
 
   await logAudit({
     entity: 'purchase', entityId: data.id, action: 'create', actor: actorId,
