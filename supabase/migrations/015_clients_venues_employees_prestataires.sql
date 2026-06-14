@@ -59,13 +59,17 @@ CREATE TABLE prestataires (
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- ── 5. RLS — accès authentifié uniquement ────────────────────
+-- ── 5. RLS ───────────────────────────────────────────────────
 ALTER TABLE clients      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE venues       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE employees    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prestataires ENABLE ROW LEVEL SECURITY;
 
+CREATE POLICY "clients_anon"      ON clients      FOR ALL TO anon          USING (true) WITH CHECK (true);
 CREATE POLICY "clients_auth"      ON clients      FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "venues_anon"       ON venues       FOR ALL TO anon          USING (true) WITH CHECK (true);
 CREATE POLICY "venues_auth"       ON venues       FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "employees_anon"    ON employees    FOR ALL TO anon          USING (true) WITH CHECK (true);
 CREATE POLICY "employees_auth"    ON employees    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "prestataires_anon" ON prestataires FOR ALL TO anon          USING (true) WITH CHECK (true);
 CREATE POLICY "prestataires_auth" ON prestataires FOR ALL TO authenticated USING (true) WITH CHECK (true);
