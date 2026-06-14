@@ -12,7 +12,10 @@ ALTER TABLE articles
 UPDATE articles SET average_cost = last_purchase_price WHERE average_cost = 0;
 
 -- 2. Vue current_stock corrigée : stock_value utilise average_cost
-CREATE OR REPLACE VIEW current_stock AS
+-- DROP obligatoire : CREATE OR REPLACE ne peut pas insérer de colonne au milieu
+DROP VIEW IF EXISTS current_stock;
+
+CREATE VIEW current_stock AS
 SELECT
   a.id                    AS article_id,
   a.name,
