@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Plus, ChevronRight, CheckCircle2, Clock, ArrowLeft, Pen, Zap } from 'lucide-react';
+import { Plus, ChevronRight, CheckCircle2, Clock, ArrowLeft, Pen, Zap, Archive } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import usePermission from '../hooks/usePermission';
@@ -58,6 +58,8 @@ const InventaireList = ({ onSelect, onNew, canCreate }) => {
               <div className="flex items-center gap-3">
                 {inv.status === 'valide'
                   ? <CheckCircle2 size={20} className="text-green-500 flex-shrink-0" />
+                  : inv.status === 'archive'
+                  ? <Archive size={20} className="text-gray-400 flex-shrink-0" />
                   : <Clock size={20} className="text-yellow-500 flex-shrink-0" />
                 }
                 <div>
