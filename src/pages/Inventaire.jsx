@@ -118,12 +118,12 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
     // Init counts depuis les lignes existantes
     const c = {};
     invData.inventory_lines?.forEach((l) => {
-      c[l.article_id] = { qty: String(l.counted_qty), price: l.unit_price };
+      c[l.article_id] = { qty: String(l.counted_qty) };
     });
     // Pour les articles sans ligne : on pré-remplit avec 0
     arts.forEach((a) => {
       if (!c[a.id]) {
-        c[a.id] = { qty: '', price: a.last_purchase_price };
+        c[a.id] = { qty: '' };
       }
     });
     setCounts(c);
@@ -135,18 +135,31 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
     setCounts((prev) => ({ ...prev, [articleId]: { ...prev[articleId], qty: val } }));
   };
 
-  // Pré-remplit toutes les quantités vides avec le stock actuel
-  const prefillFromStock = () => {
+  // Pré-remplit toutes les quantités vides avec le stock actuel et sauvegarde en base
+  const prefillFromStock = async () => {
+    const updates = [];
+    articles.forEach((a) => {
+      if (!counts[a.id]?.qty) {
+        const currentQty = Number(stock[a.id]?.quantity ?? 0);
+        updates.push({ id: a.id, qty: currentQty });
+      }
+    });
+
     setCounts((prev) => {
       const next = { ...prev };
-      articles.forEach((a) => {
-        if (!next[a.id]?.qty) {
-          const currentQty = Number(stock[a.id]?.quantity ?? 0);
-          next[a.id] = { ...next[a.id], qty: String(currentQty) };
-        }
+      updates.forEach(({ id, qty }) => {
+        next[id] = { ...next[id], qty: String(qty) };
       });
       return next;
     });
+
+    await Promise.all(
+      updates.map(({ id, qty }) => {
+        const avgCost = stock[id]?.average_cost ?? articles.find((a) => a.id === id)?.last_purchase_price ?? 0;
+        return upsertInventoryLine(inventoryId, id, qty, avgCost);
+      })
+    );
+
     toast.success('Quantités pré-remplies depuis le stock actuel');
   };
 
@@ -158,7 +171,7 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
     setSaving((s) => ({ ...s, [articleId]: true }));
     try {
       const art = articles.find((a) => a.id === articleId);
-      await upsertInventoryLine(inventoryId, articleId, qty, art?.last_purchase_price ?? 0);
+      await upsertInventoryLine(inventoryId, articleId, qty, stock[articleId]?.average_cost ?? art?.last_purchase_price ?? 0);
     } catch (e) {
       toast.error('Sauvegarde échouée');
     } finally {
@@ -187,7 +200,7 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
     return articles.reduce((sum, a) => {
       const c = counts[a.id];
       const qty   = parseFloat(c?.qty)   || 0;
-      const price = parseFloat(c?.price) || a.last_purchase_price || 0;
+      const price = stock[a.id]?.average_cost ?? a.last_purchase_price ?? 0;
       return sum + qty * price;
     }, 0);
   }, [articles, counts]);
@@ -271,9 +284,9 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
               </thead>
               <tbody>
                 {items.map((a) => {
-                  const c = counts[a.id] ?? { qty: '', price: a.last_purchase_price };
-                  const qty   = parseFloat(c.qty)   || 0;
-                  const price = parseFloat(c.price) || a.last_purchase_price || 0;
+                  const c = counts[a.id] ?? { qty: '' };
+                  const qty   = parseFloat(c.qty) || 0;
+                  const price = stock[a.id]?.average_cost ?? a.last_purchase_price ?? 0;
                   const lineVal = qty * price;
                   const currentQty = Number(stock[a.id]?.quantity ?? 0);
 
