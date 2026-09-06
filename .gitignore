@@ -2,3 +2,6 @@ node_modules
 dist
 .env.local
 .env.*.local
+
+# Valeurs réelles : jamais dans le dépôt. Voir .env.example.
+.env
