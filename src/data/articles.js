@@ -74,9 +74,3 @@ export const uploadArticlePhoto = async (file, articleId) => {
   return data.publicUrl;
 };
 
-// Retire la photo d'un article, du stockage comme de la fiche.
-export const supprimerArticlePhoto = async (photoUrl) => {
-  if (!photoUrl) return;
-  const nom = photoUrl.split('/').pop()?.split('?')[0];
-  if (nom) await supabase.storage.from(BUCKET_PHOTOS).remove([nom]);
-};

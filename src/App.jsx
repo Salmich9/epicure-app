@@ -5,13 +5,11 @@ import { PageLoader } from './components/ui/Spinner';
 
 import Login      from './pages/Login';
 import Dashboard  from './pages/Dashboard';
-import Catalogue  from './pages/Catalogue';
 import Depot      from './pages/Depot';
 import Inventaire from './pages/Inventaire';
 import Evenements from './pages/Evenements';
 import Parametres from './pages/Parametres';
 import Historique from './pages/Historique';
-import Achats     from './pages/Achats';
 
 // ── Guard : redirige vers /login si non authentifié ──────────
 const ProtectedRoute = ({ children }) => {
@@ -21,7 +19,7 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// ── Guard : redirige vers /catalogue si déjà connecté ────────
+// ── Guard : renvoie vers /dashboard si deja connecte ────────
 const GuestRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <PageLoader />;
@@ -45,13 +43,11 @@ const AppRoutes = () => (
     >
       <Route index element={<Navigate to="/dashboard" replace />} />
       <Route path="dashboard"  element={<Dashboard />} />
-      <Route path="catalogue"  element={<Catalogue />} />
       <Route path="depot"      element={<Depot />} />
       <Route path="inventaire" element={<Inventaire />} />
       <Route path="evenements" element={<Evenements />} />
       <Route path="parametres" element={<Parametres />} />
       <Route path="historique" element={<Historique />} />
-      <Route path="achats"     element={<Achats />} />
     </Route>
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>

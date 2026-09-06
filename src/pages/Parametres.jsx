@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, ChevronUp, ChevronDown, ToggleLeft, ToggleRight, Key, UserPlus, Save } from 'lucide-react';
+import { Plus, Pencil, ChevronUp, ChevronDown, ToggleLeft, ToggleRight, Key, UserPlus, Save, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import usePermission from '../hooks/usePermission';
@@ -8,6 +8,8 @@ import { fetchUnits, createUnit, updateUnit } from '../data/units';
 import { fetchUsers, fetchRoles, createUser, updateUser, toggleUserActive } from '../data/users';
 import { fetchAllPermissions, updatePermission } from '../data/permissions';
 import { fetchSettings, updateSetting } from '../data/settings';
+import { fetchSuppliers } from '../data/purchases';
+import SupplierModal from '../components/SupplierModal';
 import Modal from '../components/ui/Modal';
 import Button from '../components/ui/Button';
 import Input, { Select } from '../components/ui/Input';
@@ -424,10 +426,89 @@ const ReglagesTab = () => {
   );
 };
 
+// ── Fournisseurs ──────────────────────────────────────────────
+//
+// Vivaient dans la page Achats, disparue. Ils rejoignent les catégories et les
+// unités : un référentiel qu'on remplit une fois et qu'on ne rouvre presque
+// jamais n'a rien à faire sur l'écran de travail quotidien.
+//
+// La création reste possible sans venir ici — taper un nom inconnu dans la
+// saisie d'achat suffit. Cet onglet sert à corriger, pas à alimenter.
+const FournisseursTab = () => {
+  const canManage = usePermission('purchases.create');
+  const [liste, setListe] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [editing, setEditing] = useState(null);
+
+  const load = () => {
+    setLoading(true);
+    fetchSuppliers(false)
+      .then(setListe)
+      .catch(() => toast.error('Erreur de chargement'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  if (loading) return <PageLoader />;
+
+  return (
+    <div>
+      {canManage && (
+        <Button className="gap-2 mb-4" onClick={() => { setEditing(null); setModal(true); }}>
+          <Plus size={16} /> Nouveau fournisseur
+        </Button>
+      )}
+
+      <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-hidden">
+        {liste.length === 0 ? (
+          <div className="py-16 text-center text-sm text-[var(--color-text-faint)]">
+            <Building2 size={32} className="mx-auto mb-3 opacity-30" />
+            Aucun fournisseur enregistré.
+          </div>
+        ) : (
+          <div className="divide-y divide-[var(--color-border)]">
+            {liste.map((s) => (
+              <div key={s.id} className={`flex items-center gap-3 px-4 py-3 ${!s.active ? 'opacity-50' : ''}`}>
+                <div className="w-9 h-9 rounded-full bg-primary-100 text-primary flex items-center justify-center text-sm font-bold flex-shrink-0">
+                  {s.name[0].toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-[var(--color-text)]">{s.name}</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    {s.phone ?? ''}{s.note ? ` · ${s.note}` : ''}
+                  </p>
+                </div>
+                {canManage && (
+                  <button
+                    onClick={() => { setEditing(s); setModal(true); }}
+                    className="text-xs text-[var(--color-text-muted)] hover:text-primary px-3 py-1 rounded border border-[var(--color-border)] hover:border-primary transition-colors"
+                  >
+                    Modifier
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <SupplierModal
+        open={modal}
+        onClose={() => { setModal(false); setEditing(null); }}
+        onSaved={load}
+        editing={editing}
+      />
+    </div>
+  );
+};
+
 // ── Page Paramètres ───────────────────────────────────────────
 const TABS = [
   { id: 'categories',  label: 'Catégories',  perm: 'categories.manage' },
   { id: 'unites',      label: 'Unités',       perm: 'units.manage' },
+  { id: 'fournisseurs',label: 'Fournisseurs', perm: 'purchases.read' },
   { id: 'utilisateurs',label: 'Utilisateurs', perm: 'settings.read' },
   { id: 'permissions', label: 'Permissions',  perm: 'permissions.manage' },
   { id: 'reglages',    label: 'Réglages',     perm: 'settings.manage' },
@@ -462,6 +543,7 @@ const Parametres = () => {
       {/* Contenu */}
       {tab === 'categories'   && <CategoriesTab />}
       {tab === 'unites'       && <UnitesTab />}
+      {tab === 'fournisseurs' && <FournisseursTab />}
       {tab === 'utilisateurs' && <UtilisateursTab />}
       {tab === 'permissions'  && <PermissionsTab />}
       {tab === 'reglages'     && <ReglagesTab />}

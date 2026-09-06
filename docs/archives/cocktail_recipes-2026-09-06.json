@@ -1,0 +1,69 @@
+{
+  "_note": "Les 4 recettes de cocktail_recipes, exportées le 06/09/2026 juste avant la suppression de la table par la migration 037. Trois sur quatre n'avaient ni alcool ni verre renseigné. Les colonnes est_premix et premix_cl venaient de la migration 018, ajoutée le même jour. Les *_nom sont résolus depuis articles au moment de l'export ; les *_article_id pointent vers des articles qui, eux, existent toujours.",
+  "recettes": [
+    {
+      "id": "64643d1f-02f9-4db8-bc4e-13ad2d7cafd1",
+      "nom": "Apothicaire",
+      "type_carte": "Signature",
+      "actif": true,
+      "dosage": "4cl",
+      "glacons": "Cube alimentaire",
+      "service_alcool": "Bouteille noire",
+      "est_premix": "Premix",
+      "premix_cl": 12.0,
+      "notes": "",
+      "alcool_article_id": null,  "alcool_nom": null,
+      "verre_article_id": null,   "verre_nom": null,
+      "garnish_article_id": null, "garnish_nom": null,
+      "created_at": "2026-06-14T23:38:00.621048+00:00"
+    },
+    {
+      "id": "11baab99-6099-4352-888a-b02d03004eb6",
+      "nom": "Margarita",
+      "type_carte": "Classique",
+      "actif": true,
+      "dosage": "5cl",
+      "glacons": "Sans",
+      "service_alcool": "Bouteille noire",
+      "est_premix": "Premix",
+      "premix_cl": 10.0,
+      "notes": "",
+      "alcool_article_id": "b2e3a56e-3899-4b7f-999e-6162e2ccfeef", "alcool_nom": "Tequila Agavita",
+      "verre_article_id": "1a8b84e5-f30b-484c-a795-56e0b515f86f",  "verre_nom": "Coupette",
+      "garnish_article_id": "d35fbd5a-4ba9-4233-afcc-ff51e58edafc","garnish_nom": "Citron séché",
+      "created_at": "2026-06-14T23:56:36.027888+00:00"
+    },
+    {
+      "id": "04234e3e-4d49-4747-b051-0114e637273b",
+      "nom": "Mojito",
+      "type_carte": "Classique",
+      "actif": true,
+      "dosage": "4cl",
+      "glacons": "Cube alimentaire",
+      "service_alcool": "Bouteille noire",
+      "est_premix": null,
+      "premix_cl": null,
+      "notes": "",
+      "alcool_article_id": null, "alcool_nom": null,
+      "verre_article_id": "04cd3f44-14ed-43bb-9e4a-eec09b148877", "verre_nom": "Long drinks",
+      "garnish_article_id": null, "garnish_nom": null,
+      "created_at": "2026-06-14T23:23:07.29623+00:00"
+    },
+    {
+      "id": "cb95d5b8-d88a-4a62-9493-0198ffc55552",
+      "nom": "Rosée du Matin",
+      "type_carte": "Signature",
+      "actif": true,
+      "dosage": "4cl",
+      "glacons": "Cube alimentaire",
+      "service_alcool": "Bouteille d'origine",
+      "est_premix": "Premix",
+      "premix_cl": 12.0,
+      "notes": "",
+      "alcool_article_id": null, "alcool_nom": null,
+      "verre_article_id": null,  "verre_nom": null,
+      "garnish_article_id": null,"garnish_nom": null,
+      "created_at": "2026-06-14T23:48:49.433107+00:00"
+    }
+  ]
+}

@@ -165,7 +165,7 @@ const Dashboard = () => {
           value={stats?.articles_alerte ?? 0}
           sub="stock sous le seuil"
           color={stats?.articles_alerte > 0 ? 'bg-orange-500' : 'bg-green-500'}
-          onClick={() => navigate('/catalogue')}
+          onClick={() => navigate('/depot')}
         />
         <KpiCard
           icon={TrendingDown}
@@ -217,7 +217,7 @@ const Dashboard = () => {
         <div className="bg-white rounded-[var(--radius-lg)] border border-[var(--color-border)] overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
             <h2 className="font-display text-lg font-semibold text-[var(--color-text)]">Articles en alerte stock</h2>
-            <button onClick={() => navigate('/catalogue')} className="text-xs text-primary hover:underline flex items-center gap-0.5">
+            <button onClick={() => navigate('/depot')} className="text-xs text-primary hover:underline flex items-center gap-0.5">
               Catalogue <ArrowRight size={12} />
             </button>
           </div>

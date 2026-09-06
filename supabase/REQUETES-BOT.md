@@ -68,6 +68,43 @@ where event_id = $1 and ecart <> 0
 order by valeur_ecart desc;
 ```
 
+## D'où vient la valeur du dépôt — `v_depot_evolution`
+
+Depuis la migration `034`, le chiffre se décompose. Une seule ligne :
+
+```sql
+select valeur_totale, valeur_comptee, inventaire_date,
+       valeur_achats, valeur_prelevements, valeur_retours,
+       montant_achats_paye, effet_prix, controle
+from v_depot_evolution;
+```
+
+→ `59 522 = 59 672 comptés le 06/09 − 1 500 sortis + 1 350 rentrés`
+
+C'est la réponse à « pourquoi le dépôt vaut ça ». **`controle` doit valoir
+`0.00`** ; toute autre valeur signale un défaut de partition du journal et
+mérite d'être signalée telle quelle, pas d'être arrondie.
+
+`montant_achats_paye` est ce qui a été **réellement facturé** depuis
+l'inventaire, au coût figé sur chaque mouvement. `effet_prix` est l'écart entre
+le comptage revalorisé au coût moyen d'aujourd'hui et le montant signé à
+l'époque — il n'est pas une perte, c'est le déplacement du coût moyen.
+
+Le détail par article vit dans `v_depot_decomposition` : mêmes colonnes, plus
+`qte_achats`, `qte_prelevements`, `qte_retours` et `en_alerte`.
+
+## Ce que l'inventaire n'a pas compté
+
+```sql
+select articles_comptes, articles_actifs,
+       non_comptes_avec_stock, valeur_non_comptee
+from v_inventaire_couverture;
+```
+
+`validate_inventory` ignore silencieusement tout article sans ligne
+d'inventaire. Si `non_comptes_avec_stock` est supérieur à zéro, une part du
+dépôt n'a jamais été vue et le dire vaut mieux que de le taire.
+
 ## Ce que « écart » veut dire ici
 
 L'écart est la différence entre ce qui est sorti et ce qui est revenu. C'est la
