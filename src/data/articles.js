@@ -17,13 +17,24 @@ export const fetchArticles = async ({ activeOnly = true } = {}) => {
   return data;
 };
 
+// « duplicate key value violates unique constraint
+// idx_articles_nom_unique_actifs » ne veut rien dire pour qui saisit un achat
+// sur un téléphone. La contrainte de la 038 est une règle métier — un nom
+// d'article actif est unique — et elle doit se lire comme telle.
+const traduireErreur = (error, nom) => {
+  if (error?.code === '23505' && String(error.message).includes('nom_unique_actifs')) {
+    return new Error(`Un article nommé « ${nom.trim()} » existe déjà. Cherche-le dans la liste plutôt que d'en créer un second.`);
+  }
+  return error;
+};
+
 export const createArticle = async (fields, actorId) => {
   const { data, error } = await supabase
     .from('articles')
     .insert(fields)
     .select()
     .single();
-  if (error) throw error;
+  if (error) throw traduireErreur(error, fields.name ?? '');
   await logAudit({ entity: 'article', entityId: data.id, action: 'create', actor: actorId, payload: fields });
   return data;
 };
@@ -35,7 +46,7 @@ export const updateArticle = async (id, updates, actorId) => {
     .eq('id', id)
     .select()
     .single();
-  if (error) throw error;
+  if (error) throw traduireErreur(error, updates.name ?? '');
   await logAudit({ entity: 'article', entityId: id, action: 'update', actor: actorId, payload: updates });
   return data;
 };

@@ -137,6 +137,30 @@ pouvait lire neuf tables en direct, dont `users` et ses `pin_hash`.
 supprimé par la `025`. Les 4 fiches sont archivées dans
 `docs/archives/cocktail_recipes-2026-09-06.json` avant suppression.
 
+## Deux corrections nées du premier usage réel — `038` et `039`
+
+Le soir de la mise en service, six achats saisis depuis le téléphone ont montré
+deux manques que la conception n'avait pas vus.
+
+**`038_unicite_noms_articles.sql`** — un second « Plateau service » est né d'une
+saisie à la volée, dans une autre catégorie, alors que le premier existait
+depuis juin. Le garde-fou de `enregistrer_achat` n'a pas joué : l'app ne passe
+pas par lui. Le formulaire crée la fiche d'abord, la RPC reçoit un `article_id`
+et n'a plus rien à décider. D'où la règle posée **en base** — une vérification
+d'écran ne protège que l'écran qui la porte. Index partiel, sur les actifs
+seulement : un article archivé garde son nom, il porte de l'histoire.
+
+**`039_annulation_achat.sql`** — depuis la `035`, une faute de frappe sur un
+achat n'avait plus aucune issue. `annuler_achat()` compense par un mouvement
+inverse : la pièce reste dans `purchases`, marquée annulée, et sort de
+`v_achats`. Refusée si un achat plus récent a déplacé le coût moyen — celui-ci
+est une moyenne mobile, il n'est exactement réversible que sur la dernière
+couche — ou si un inventaire l'a déjà absorbé.
+
+L'asymétrie avec `annuler_prelevement` est voulue : un prélèvement erroné sur un
+événement ouvert est un brouillon, il se supprime. Un achat est une pièce
+comptable, il se compense.
+
 Les sections ci-dessous décrivent des migrations désormais annulées par la 025.
 Elles sont conservées pour l'historique.
 
