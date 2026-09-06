@@ -16,6 +16,20 @@ import { PageLoader } from '../components/ui/Spinner';
 import { formatMAD, formatQty, formatDate, formatDateTime } from '../lib/utils';
 
 // ── Carte KPI ─────────────────────────────────────────────────
+// Un chiffre de stock se lit avec la date de l'inventaire qui le fonde :
+// 34 915 MAD relevés il y a 25 jours ne se lisent pas comme le chiffre d'hier.
+const sousTitreInventaire = (stats) => {
+  if (!stats?.inventaire_date) return 'aucun inventaire validé';
+  // Decoupage manuel plutot que `new Date` : une date seule est interpretee
+  // en UTC, et reculerait d'un jour dans tout fuseau derriere Greenwich.
+  const [, mois, jourDuMois] = stats.inventaire_date.split('-');
+  const jour = `${jourDuMois}/${mois}`;
+  const jours = stats.inventaire_jours;
+  if (jours === null || jours === undefined) return `inventaire du ${jour}`;
+  if (jours === 0) return `inventaire d'aujourd'hui`;
+  return `inventaire du ${jour} · ${jours} j`;
+};
+
 const KpiCard = ({ icon: Icon, label, value, sub, color, onClick }) => (
   <button
     onClick={onClick}
@@ -133,7 +147,7 @@ const Dashboard = () => {
           icon={Warehouse}
           label="Valeur du dépôt"
           value={formatMAD(stats?.depot_value ?? 0)}
-          sub="au dernier prix d'achat"
+          sub={sousTitreInventaire(stats)}
           color="bg-primary"
           onClick={() => navigate('/depot')}
         />
