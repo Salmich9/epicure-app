@@ -37,6 +37,27 @@ exactes et doivent rester. `supabase migration list` les affichera comme
 distantes sans équivalent local ; c'est normal, et c'est le signe que deux
 projets écrivent dans la même base.
 
+## Le domaine « organisation d'événement » a été supprimé
+
+`025_suppression_briefing.sql` retire tout ce qui servait à organiser un
+événement : `event_briefing`, `event_billing_lines`, `bot_sessions`,
+`stock_reservations`, `bot_users`, `clients`, `venues`, `employees`,
+`prestataires`, plus `events.client_id` / `events.venue_id` et les fonctions
+`stock_disponible()` / `expirer_reserves_provisoires()`.
+
+Les 92 lignes d'`event_briefing` ont été vérifiées avant suppression : elles
+appartenaient toutes au seul événement « Test 8 » du 14/06/2026. Aucune donnée
+de production.
+
+L'app documente désormais le stock — achats, catalogue, dépôt, inventaires — et
+par événement les prélèvements, retours et écarts.
+
+`026_vues_questions.sql` ajoute six vues de lecture pour un bot. Voir
+`../REQUETES-BOT.md`.
+
+Les sections ci-dessous décrivent des migrations désormais annulées par la 025.
+Elles sont conservées pour l'historique.
+
 ## La facturation, sortie de l'EAV
 
 `019_event_billing_lines.sql` crée `event_billing_lines` et y reprend ce que
