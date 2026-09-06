@@ -28,6 +28,24 @@ outil qui écrit directement en base, crée une ligne horodatée qui ne correspo
 à aucun fichier — c'est exactement ce qui a produit la dérive. Si tu le fais
 quand même, ajoute le fichier ensuite et corrige la version.
 
+### Elle a été enfreinte le 06/09/2026, puis rétablie
+
+Neuf migrations — `019`, `024` à `031` — ont été appliquées par un outil qui
+écrit directement en base. Chacune a reçu une version horodatée
+(`20260906124113 / 029_fusion_categories_doublons`) au lieu de son préfixe.
+
+C'est exactement la dérive décrite ci-dessus, reproduite neuf fois par celui
+qui l'avait documentée. Elle est réparée : les neuf lignes portent désormais
+`019`…`031`, et le registre compte **31 versions Epicure pour 31 fichiers**,
+sans trou de `001` à `031`.
+
+Le contrôle tient en une requête, à refaire au moindre doute :
+
+```sql
+select version, name from supabase_migrations.schema_migrations
+ where version ~ '^0[0-9]{2}$' order by version;
+```
+
 ## Une anomalie connue, laissée telle quelle
 
 **Neuf lignes horodatées n'ont aucun fichier ici.** Elles enregistrent les
@@ -59,6 +77,23 @@ par événement les prélèvements, retours et écarts.
 Le dashboard valorisait les écarts au dernier prix d'achat, le reste au coût
 moyen pondéré — 24 % d'écart sur juin 2026. Il n'existe plus qu'une définition
 de chaque chiffre.
+
+`028_role_lecture_barometre.sql` crée le rôle `barometre_lecture`, seul autorisé
+à lire les six vues à travers `postgres_fdw` depuis le projet Baromètre. Sans
+lui, le lien se serait connecté en `postgres` — superutilisateur ici.
+
+`029_fusion_categories_doublons.sql` fusionne les familles d'articles inscrites
+deux fois : **28 catégories pour 17 réelles**. Trois paires portaient des
+articles des deux côtés, d'où le repointage avant suppression.
+
+`030_reset_donnees_transactionnelles.sql` vide les données d'exploitation —
+événements, inventaires, mouvements, achats — et garde le catalogue. Les prix
+(`average_cost`, `last_purchase_price`) sont **volontairement conservés** : ce
+sont des attributs du catalogue, et sans eux le premier inventaire vaudrait 0.
+
+`031_photos_articles.sql` rend enfin l'envoi de photos possible. `storage.objects`
+ne portait aucune policy pour ce bucket ; le RLS y étant actif, tout envoi était
+refusé — silencieusement, du point de vue de l'utilisateur.
 
 Les sections ci-dessous décrivent des migrations désormais annulées par la 025.
 Elles sont conservées pour l'historique.

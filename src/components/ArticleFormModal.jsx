@@ -3,6 +3,7 @@ import { Image } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { createArticle, updateArticle, uploadArticlePhoto } from '../data/articles';
+import { compresserImage, poidsLisible } from '../lib/image';
 import { fetchCategories } from '../data/categories';
 import { fetchUnits } from '../data/units';
 import Modal from './ui/Modal';
@@ -18,14 +19,19 @@ export const ArticleForm = ({ initial, categories, units, onSave, onClose, loadi
   });
   const [photoFile,    setPhotoFile]    = useState(null);
   const [photoPreview, setPhotoPreview] = useState(initial?.photo_url || '');
+  const [photoPoids,   setPhotoPoids]   = useState(null);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
-  const handlePhotoChange = (e) => {
+  // On compresse ici, pas a l'envoi : l'apercu montre alors exactement ce qui
+  // partira, et le poids affiche rend le reglage verifiable d'un coup d'oeil.
+  const handlePhotoChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
+    const reduit = await compresserImage(file);
+    setPhotoFile(reduit);
+    setPhotoPreview(URL.createObjectURL(reduit));
+    setPhotoPoids({ avant: file.size, apres: reduit.size });
   };
 
   const handleSubmit = (e) => {
@@ -98,6 +104,11 @@ export const ArticleForm = ({ initial, categories, units, onSave, onClose, loadi
             <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
           </label>
         </div>
+        {photoPoids && (
+          <p className="text-xs text-[var(--color-text-faint)]">
+            {poidsLisible(photoPoids.avant)} → {poidsLisible(photoPoids.apres)} après compression
+          </p>
+        )}
       </div>
 
       <div className="flex gap-3 pt-2">
