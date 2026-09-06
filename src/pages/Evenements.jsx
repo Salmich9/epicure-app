@@ -2,9 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Plus, ChevronRight, ArrowLeft, Calendar, MapPin, Users,
   Trash2, Printer, PackageMinus, PackageCheck, CheckCircle2,
-  Clock, Lock, X, UserPlus, AlertTriangle, ClipboardList,
+  Clock, Lock, X, UserPlus, AlertTriangle,
 } from 'lucide-react';
-import BriefingTabs from '../components/briefing/BriefingTabs';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import usePermission from '../hooks/usePermission';
@@ -568,7 +567,7 @@ const EvenementDetail = ({ eventId, onBack }) => {
   const [articles,    setArticles]    = useState([]);
   const [stock,       setStock]       = useState([]);
   const [loading,     setLoading]     = useState(true);
-  const [tab,         setTab]         = useState('prelevements'); // 'prelevements' | 'retours' | 'briefing'
+  const [tab,         setTab]         = useState('prelevements'); // 'prelevements' | 'retours'
   const [withdrawModal, setWithdrawModal] = useState(false);
   const [respModal,   setRespModal]   = useState(false);
   const [respForm,    setRespForm]    = useState({ name: '', role_label: '' });
@@ -712,14 +711,6 @@ const EvenementDetail = ({ eventId, onBack }) => {
         >
           <PackageCheck size={14} /> Retours & Écarts
         </button>
-        <button
-          onClick={() => setTab('briefing')}
-          className={cn('flex-1 py-2 px-4 rounded-[var(--radius-sm)] text-sm font-medium transition-colors min-h-[44px] flex items-center justify-center gap-2',
-            tab === 'briefing' ? 'bg-white text-primary shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-          )}
-        >
-          <ClipboardList size={14} /> Briefing
-        </button>
       </div>
 
       {/* Contenu onglet Prélèvements */}
@@ -799,13 +790,6 @@ const EvenementDetail = ({ eventId, onBack }) => {
             onValidated={load}
             isClosed={isClosed}
           />
-        </section>
-      )}
-
-      {/* Contenu onglet Briefing */}
-      {tab === 'briefing' && (
-        <section>
-          <BriefingTabs eventId={eventId} />
         </section>
       )}
 
