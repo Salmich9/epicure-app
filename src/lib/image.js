@@ -27,14 +27,34 @@ const formatSupporte = () => {
   }
 };
 
-const chargerImage = (file) =>
-  new Promise((resolve, reject) => {
+// DEUX DÉCODEURS, ET L'ORDRE COMPTE.
+//
+// `createImageBitmap` lit des formats que `<img>` refuse — le HEIC des
+// iPhone au premier chef. C'est le format de TOUTE photo prise par un
+// iPhone, donc de tout ce qui sort de la photothèque ; une photo prise à
+// l'instant depuis le navigateur, elle, arrive en JPEG. D'où un bug qui ne
+// se manifestait que sur la moitié des chemins, et dont la cause n'avait
+// rien à voir avec la moitié en question.
+//
+// `<img>` reste en second : plus ancien, plus permissif sur les fichiers
+// légèrement malformés, et présent partout.
+const chargerImage = async (file) => {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      return await createImageBitmap(file);
+    } catch {
+      // Format refusé par ce décodeur-ci — on tente l'autre.
+    }
+  }
+
+  return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image illisible')); };
     img.src = url;
   });
+};
 
 const versBlob = (canvas, type, qualite) =>
   new Promise((resolve, reject) => {
@@ -45,18 +65,45 @@ const versBlob = (canvas, type, qualite) =>
     );
   });
 
+const tropLourd = (file) =>
+  `Cette image n'a pas pu être lue par le navigateur et pèse `
+  + `${poidsLisible(file.size)}, au-delà de la limite de `
+  + `${poidsLisible(TAILLE_VISEE)}. C'est le cas des photos HEIC de la `
+  + `photothèque iPhone sur certains navigateurs. Prends-la avec l'appareil `
+  + `photo, ou exporte-la en JPEG.`;
+
 /**
  * Réduit et compresse une image. Rend un File prêt à téléverser.
  *
- * Si quoi que ce soit échoue — format exotique, canvas indisponible — le
- * fichier d'origine est rendu tel quel : mieux vaut une photo lourde que pas
- * de photo. Le plafond du bucket reste là pour trancher.
+ * SUR ÉCHEC, ON REND L'ORIGINAL — MAIS SEULEMENT S'IL PASSE LE PLAFOND.
+ *
+ * La première version rendait l'original quoi qu'il arrive, au motif que
+ * « mieux vaut une photo lourde que pas de photo, le plafond du bucket
+ * tranchera ». Le plafond tranche en effet, et voici comment, mesuré sur un
+ * fichier de 3,1 Mo : trente-six secondes d'envoi, puis 413. Vu du
+ * téléphone : ça charge longtemps, et rien ne se passe.
+ *
+ * Le choix n'était donc pas « photo lourde ou pas de photo » — une photo
+ * trop lourde n'est jamais envoyée. Il était entre un message clair tout de
+ * suite et un échec incompréhensible après une minute d'attente.
  */
 export const compresserImage = async (file, options = {}) => {
   const coteMax = options.coteMax ?? COTE_MAX;
   const qualite = options.qualite ?? QUALITE;
 
-  if (!file || !file.type?.startsWith('image/')) return file;
+  if (!file) return file;
+
+  // UN TYPE ABSENT N'EST PAS UN TYPE NON-IMAGE, et cette porte-là court-
+  // circuitait le contrôle de taille. Beaucoup de sélecteurs mobiles rendent
+  // un `type` vide : le fichier ressortait intact, 3 Mo compris, et repartait
+  // droit vers le 413 que tout le reste de cette fonction sert à éviter.
+  //
+  // Sans type, on tente le décodage. Un vrai non-image (un PDF glissé dans le
+  // champ) sort ici, mais passe par le même contrôle de taille.
+  if (file.type && !file.type.startsWith('image/')) {
+    if (file.size <= TAILLE_VISEE) return file;
+    throw new Error(tropLourd(file));
+  }
 
   try {
     const img = await chargerImage(file);
@@ -84,12 +131,17 @@ export const compresserImage = async (file, options = {}) => {
       blob = await versBlob(canvas, type, essai);
     }
 
-    if (blob.size >= file.size) return file; // déjà plus léger à l'origine
+    // Déjà plus léger à l'origine : inutile de le réencoder.
+    if (blob.size >= file.size && file.size <= TAILLE_VISEE) return file;
 
     const extension = type === 'image/webp' ? 'webp' : 'jpg';
     return new File([blob], `photo.${extension}`, { type });
   } catch {
-    return file;
+    // Illisible, mais assez léger pour passer : on tente tel quel. Le serveur
+    // saura peut-être en faire quelque chose, et l'aperçu échouera au pire.
+    if (file.size <= TAILLE_VISEE) return file;
+
+    throw new Error(tropLourd(file));
   }
 };
 

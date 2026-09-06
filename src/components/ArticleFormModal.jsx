@@ -28,10 +28,21 @@ export const ArticleForm = ({ initial, categories, units, onSave, onClose, loadi
   const handlePhotoChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reduit = await compresserImage(file);
-    setPhotoFile(reduit);
-    setPhotoPreview(URL.createObjectURL(reduit));
-    setPhotoPoids({ avant: file.size, apres: reduit.size });
+    try {
+      const reduit = await compresserImage(file);
+      setPhotoFile(reduit);
+      setPhotoPreview(URL.createObjectURL(reduit));
+      setPhotoPoids({ avant: file.size, apres: reduit.size });
+    } catch (err) {
+      // Le refus vient d'une image illisible ET trop lourde. Sans ce catch,
+      // c'etait un rejet de promesse non traite : rien a l'ecran, l'apercu
+      // vide, et l'envoi partait quand meme pour finir en 413 au bout d'une
+      // demi-minute. Dire pourquoi tout de suite vaut mieux.
+      toast.error(err.message, { duration: 8000 });
+      e.target.value = '';
+      setPhotoFile(null);
+      setPhotoPoids(null);
+    }
   };
 
   const handleSubmit = (e) => {
