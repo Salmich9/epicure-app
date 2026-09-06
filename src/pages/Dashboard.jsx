@@ -218,7 +218,7 @@ const Dashboard = () => {
           <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
             <h2 className="font-display text-lg font-semibold text-[var(--color-text)]">Articles en alerte stock</h2>
             <button onClick={() => navigate('/depot')} className="text-xs text-primary hover:underline flex items-center gap-0.5">
-              Catalogue <ArrowRight size={12} />
+              Dépôt <ArrowRight size={12} />
             </button>
           </div>
           {alerts.length === 0 ? (
