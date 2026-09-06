@@ -95,6 +95,48 @@ sont des attributs du catalogue, et sans eux le premier inventaire vaudrait 0.
 ne portait aucune policy pour ce bucket ; le RLS y étant actif, tout envoi était
 refusé — silencieusement, du point de vue de l'utilisateur.
 
+## L'app se resserre autour du Dépôt — `032` à `037`
+
+Le Catalogue et les Achats disparaissent : ils décrivaient le même geste — *j'ai
+acheté quelque chose, ça entre au dépôt* — sur deux écrans. Tout se fait
+désormais depuis le Dépôt, qui devient le seul écran opérationnel.
+
+**`032_journal_index_et_cout.sql`** — `stock_movements` n'avait aucun index hors
+la clé primaire. Ajoute aussi `unit_cost` et `cost_basis` : le coût figé à
+l'écriture, pour pouvoir dire ce qui a été *payé* et pas seulement ce que ça
+*vaut*. La reprise de l'existant est marquée `'reprise'` — une valeur
+reconstituée ne doit jamais se faire passer pour une valeur observée.
+
+**`033_achat_atomique.sql`** — `enregistrer_achat()` remplace les quatre appels
+non atomiques de `createPurchase`, dont deux dont l'erreur n'était jamais lue.
+Elle peut créer l'article, et réutilise un nom déjà présent plutôt que de le
+dupliquer — la leçon des 28 catégories pour 17 réelles.
+
+**`034_depot_decomposition.sql`** — quatre vues qui expliquent la valeur du
+dépôt : *ce qui a été compté au dernier inventaire, plus ce qui a bougé depuis*.
+L'identité était déjà vraie par construction ; elle est maintenant lisible.
+`v_depot_evolution.controle` doit valoir `0.00` — c'est un détecteur de bug qui
+vit dans la vue plutôt que dans un test qu'on oublie de lancer.
+
+**`035_journal_ajout_seul.sql`** — le commentaire de `001` promettait un journal
+« append-only, jamais modifié ni supprimé ». Rien ne l'imposait : la policy
+`anon_all` autorisait UPDATE et DELETE depuis le navigateur. Trigger + RLS
+resserrée. Seule porte de sortie : `annuler_prelevement()`, bornée à un
+événement ouvert et à un mouvement postérieur au dernier inventaire.
+
+> ⚠️ **À appliquer en dernier.** C'est la seule de ce lot qui casse du code
+> existant : `deleteWithdrawal` en DELETE direct cesse de fonctionner. Déployer
+> le front d'abord.
+
+**`036_grants_barometre.sql`** — corrige une erreur de la `028`. Elle affirmait
+que les vues étaient en `SECURITY INVOKER` ; elles ne le sont pas. Les `GRANT`
+sur les tables sources étaient donc inutiles *et* ouvrants : `barometre_lecture`
+pouvait lire neuf tables en direct, dont `users` et ses `pin_hash`.
+
+**`037_suppression_recettes.sql`** — `cocktail_recipes` servait au briefing,
+supprimé par la `025`. Les 4 fiches sont archivées dans
+`docs/archives/cocktail_recipes-2026-09-06.json` avant suppression.
+
 Les sections ci-dessous décrivent des migrations désormais annulées par la 025.
 Elles sont conservées pour l'historique.
 

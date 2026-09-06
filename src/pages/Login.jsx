@@ -26,7 +26,8 @@ const Login = () => {
       setLoading(true);
       try {
         await login(pin);
-        navigate('/catalogue', { replace: true });
+        // Le depot est l ecran de travail : c est la qu on arrive.
+        navigate('/depot', { replace: true });
       } catch (e) {
         setError('PIN incorrect. Réessayez.');
         setPin('');

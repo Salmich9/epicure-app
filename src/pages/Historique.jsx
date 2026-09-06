@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, ShoppingCart } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fetchAuditLog } from '../data/auditLog';
+import { fetchPurchases } from '../data/purchases';
 import { PageLoader } from '../components/ui/Spinner';
-import { formatDateTime } from '../lib/utils';
+import { formatDateTime, formatDate, formatMAD, formatQty } from '../lib/utils';
 
-const ENTITIES = ['', 'article', 'category', 'unit', 'inventory', 'user'];
+const ENTITIES = ['', 'article', 'category', 'unit', 'inventory', 'purchase',
+                  'supplier', 'stock_movement', 'user'];
 
 const ACTION_COLOR = {
   create:   'text-green-600 bg-green-50 border-green-200',
@@ -17,7 +19,92 @@ const ACTION_COLOR = {
   reorder:    'text-purple-600 bg-purple-50 border-purple-200',
 };
 
+// ── Les achats ────────────────────────────────────────────────
+//
+// La page Achats a disparu : la saisie est passée dans le Dépôt, la relecture
+// vient ici. Le journal d'audit voisin dit QUI a fait quoi ; ce tableau dit ce
+// qui est entré, à quel prix, chez qui.
+const AchatsTab = () => {
+  const [achats, setAchats] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState('');
+
+  useEffect(() => {
+    fetchPurchases(200)
+      .then(setAchats)
+      .catch(() => toast.error('Erreur de chargement'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtres = achats.filter((a) => {
+    if (!q) return true;
+    const s = q.toLowerCase();
+    return (a.articles?.name ?? '').toLowerCase().includes(s)
+        || (a.suppliers?.name ?? '').toLowerCase().includes(s);
+  });
+
+  const total = filtres.reduce((s, a) => s + Number(a.total_price ?? 0), 0);
+
+  if (loading) return <PageLoader />;
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-3 items-center mb-4">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-faint)]" />
+          <input
+            className="w-full h-10 pl-9 pr-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            placeholder="Rechercher un article ou un fournisseur…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </div>
+        {filtres.length > 0 && (
+          <span className="text-sm text-[var(--color-text-muted)]">
+            {filtres.length} achat{filtres.length > 1 ? 's' : ''} · <span className="font-semibold text-primary">{formatMAD(total)}</span>
+          </span>
+        )}
+      </div>
+
+      <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-hidden">
+        {filtres.length === 0 ? (
+          <div className="py-16 text-center text-sm text-[var(--color-text-faint)]">
+            <ShoppingCart size={32} className="mx-auto mb-3 opacity-30" />
+            Aucun achat enregistré.
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-warm-50 border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-wide">
+                <th className="px-4 py-3 text-left">Date</th>
+                <th className="px-4 py-3 text-left">Article</th>
+                <th className="px-4 py-3 text-left hidden sm:table-cell">Fournisseur</th>
+                <th className="px-4 py-3 text-right">Quantité</th>
+                <th className="px-4 py-3 text-right hidden md:table-cell">Prix unit.</th>
+                <th className="px-4 py-3 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtres.map((a, idx) => (
+                <tr key={a.id} className={`border-b border-[var(--color-border)] last:border-0 ${idx % 2 === 0 ? '' : 'bg-warm-50/30'}`}>
+                  <td className="px-4 py-3 text-[var(--color-text-muted)] whitespace-nowrap">{formatDate(a.date)}</td>
+                  <td className="px-4 py-3 font-medium text-[var(--color-text)]">{a.articles?.name}</td>
+                  <td className="px-4 py-3 text-[var(--color-text-muted)] hidden sm:table-cell">{a.suppliers?.name ?? '—'}</td>
+                  <td className="px-4 py-3 text-right">{formatQty(a.quantity)} {a.articles?.units?.abbreviation}</td>
+                  <td className="px-4 py-3 text-right text-[var(--color-text-muted)] hidden md:table-cell">{formatMAD(a.unit_price)}</td>
+                  <td className="px-4 py-3 text-right font-semibold text-primary">{formatMAD(a.total_price)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Historique = () => {
+  const [tab,       setTab]       = useState('journal');
   const [logs,      setLogs]      = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [entity,    setEntity]    = useState('');
@@ -57,7 +144,25 @@ const Historique = () => {
 
   return (
     <div className="p-4 lg:p-6 max-w-5xl mx-auto">
-      <h1 className="font-display text-3xl font-bold text-[var(--color-text)] mb-6">Historique</h1>
+      <h1 className="font-display text-3xl font-bold text-[var(--color-text)] mb-4">Historique</h1>
+
+      <div className="flex gap-1 mb-6 bg-warm-100 p-1 rounded-[var(--radius-md)] w-fit">
+        {[{ id: 'journal', label: 'Journal' }, { id: 'achats', label: 'Achats' }].map((o) => (
+          <button
+            key={o.id}
+            onClick={() => setTab(o.id)}
+            className={`px-4 py-2 rounded-[var(--radius-sm)] text-sm font-medium transition-colors min-h-[44px] ${
+              tab === o.id ? 'bg-white text-primary shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'achats' && <AchatsTab />}
+
+      {tab === 'journal' && <>
 
       {/* Filtres */}
       <div className="flex flex-wrap gap-3 mb-6">
@@ -140,6 +245,7 @@ const Historique = () => {
           )}
         </div>
       )}
+      </>}
     </div>
   );
 };

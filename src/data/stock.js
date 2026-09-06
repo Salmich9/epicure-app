@@ -48,12 +48,49 @@ export const fetchArticleMovements = async (articleId, limit = 10) => {
   }));
 };
 
-// Valeur totale du dépôt
-export const fetchDepotTotalValue = async () => {
+/**
+ * La valeur du dépôt, et d'où elle vient.
+ *
+ * Remplace `fetchDepotTotalValue`, qui n'était appelée nulle part et qui
+ * constituait surtout une TROISIÈME définition du total du dépôt, à côté de
+ * `v_depot_resume` et de la somme faite dans la page. Trois définitions du
+ * même chiffre finissent toujours par diverger — c'est déjà arrivé ici, en
+ * juin, entre le dernier prix d'achat et le coût moyen pondéré.
+ *
+ * Rend une seule ligne : `valeur_totale`, et sa décomposition en
+ * `valeur_comptee` + `valeur_achats` + `valeur_prelevements` +
+ * `valeur_retours`, avec `inventaire_date` et `controle`. Ce dernier doit
+ * valoir 0 ; toute autre valeur signale que la partition du journal a un trou.
+ */
+export const fetchDepotEvolution = async () => {
   const { data, error } = await supabase
-    .from('current_stock')
-    .select('stock_value')
-    .eq('active', true);
+    .from('v_depot_evolution')
+    .select('*')
+    .maybeSingle();
   if (error) throw error;
-  return data.reduce((sum, row) => sum + Number(row.stock_value ?? 0), 0);
+  return data;
+};
+
+/**
+ * Le détail par article : quantité, coût moyen, valeur, et ce qui a bougé
+ * depuis le dernier inventaire. Remplace `fetchCurrentStock` sur la page
+ * Dépôt — il porte les mêmes colonnes, plus la décomposition.
+ */
+export const fetchDepotDecomposition = async () => {
+  const { data, error } = await supabase
+    .from('v_depot_decomposition')
+    .select('*')
+    .order('article');
+  if (error) throw error;
+  return data;
+};
+
+/** Ce que le dernier inventaire n'a pas compté, et ce que ça pèse. */
+export const fetchInventaireCouverture = async () => {
+  const { data, error } = await supabase
+    .from('v_inventaire_couverture')
+    .select('*')
+    .maybeSingle();
+  if (error) throw error;
+  return data;
 };

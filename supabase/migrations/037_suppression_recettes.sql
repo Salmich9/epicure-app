@@ -1,0 +1,23 @@
+-- =============================================================================
+-- 037 — Les recettes de cocktail s'en vont
+--
+-- `cocktail_recipes` a été créée en 017 comme « source de vérité pour le
+-- pré-remplissage du briefing ». Le briefing a été supprimé le 06/09 par la
+-- 025, avec `event_billing_lines` et sa clé étrangère `recipe_id` — le seul
+-- consommateur. Depuis, les recettes ne servaient qu'à s'afficher elles-mêmes.
+--
+-- Quatre fiches, dont trois sans alcool ni verre renseigné. Aucune clé
+-- étrangère entrante, vérifié en base. Aucune vue ne les lit.
+--
+-- ELLES SONT ARCHIVÉES AVANT DE PARTIR :
+--   docs/archives/cocktail_recipes-2026-09-06.json
+--
+-- L'export garde les identifiants d'articles ET leurs noms résolus, parce
+-- qu'un uuid seul ne dit rien à qui rouvrirait ce fichier dans un an.
+--
+-- Part avec elle la migration 018, qui ajoutait `est_premix` et `premix_cl`
+-- quelques heures plus tôt le même jour. Le travail n'est pas perdu : il est
+-- dans l'export et dans l'historique git.
+-- =============================================================================
+
+drop table if exists cocktail_recipes;

@@ -152,9 +152,27 @@ export const validateEventReturns = async (eventId, returns, actorId) => {
   return data;
 };
 
+/**
+ * Annule un prélèvement d'événement.
+ *
+ * Faisait un DELETE direct sur `stock_movements`, avec un commentaire affirmant
+ * que c'était possible « tant que l'event n'est pas clôturé » — rien ne le
+ * vérifiait. Depuis la migration 035, le journal est en ajout seul et le DELETE
+ * est refusé : la RPC est la seule porte, et elle applique enfin les deux
+ * règles qui n'étaient qu'écrites.
+ *
+ *   — événement clôturé : refusé ;
+ *   — prélèvement antérieur à la validation du dernier inventaire : refusé,
+ *     le comptage l'a déjà absorbé et le retirer ferait mentir l'inventaire.
+ *
+ * L'audit est écrit dans la transaction, avec la ligne entière avant sa
+ * disparition. Ne pas le journaliser ici en plus.
+ */
 export const deleteWithdrawal = async (movementId, actorId) => {
-  // On peut annuler un prélèvement en le supprimant (tant que l'event n'est pas clôturé)
-  const { error } = await supabase.from('stock_movements').delete().eq('id', movementId);
+  const { data, error } = await supabase.rpc('annuler_prelevement', {
+    p_movement_id: movementId,
+    p_user_id: actorId,
+  });
   if (error) throw error;
-  await logAudit({ entity: 'stock_movement', entityId: movementId, action: 'delete', actor: actorId });
+  return data;
 };
