@@ -86,10 +86,12 @@ lui, montre les deux natures, à charge de filtrer.
 Tout est valorisé au **coût moyen pondéré** (`articles.average_cost`), comme
 `current_stock` et comme l'app.
 
-⚠️ Une exception connue : `get_dashboard_stats()` valorise les écarts au
-**dernier prix d'achat**. Le dashboard et le bot donneront donc des montants
-différents pour le même écart. Incohérence laissée telle quelle — la corriger
-changerait des chiffres déjà affichés.
+`get_dashboard_stats()` lit désormais `v_depot_resume` et `v_evenements`
+(migration `027`). Le dashboard et le bot ne peuvent donc plus diverger : il
+n'existe qu'une définition de « valeur du dépôt » et une d'« écart ».
+
+Avant cette correction, la fonction valorisait les écarts au dernier prix
+d'achat — 12 545 MAD contre 15 545 au CMP sur juin 2026, soit 24 % d'écart.
 
 ## Accès
 

@@ -55,6 +55,11 @@ par événement les prélèvements, retours et écarts.
 `026_vues_questions.sql` ajoute six vues de lecture pour un bot. Voir
 `../REQUETES-BOT.md`.
 
+`027_dashboard_cmp.sql` fait lire ces mêmes vues à `get_dashboard_stats()`.
+Le dashboard valorisait les écarts au dernier prix d'achat, le reste au coût
+moyen pondéré — 24 % d'écart sur juin 2026. Il n'existe plus qu'une définition
+de chaque chiffre.
+
 Les sections ci-dessous décrivent des migrations désormais annulées par la 025.
 Elles sont conservées pour l'historique.
 
