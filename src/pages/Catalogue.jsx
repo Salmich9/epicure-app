@@ -7,11 +7,18 @@ import { fetchArticles, deactivateArticle } from '../data/articles';
 import { fetchCategories } from '../data/categories';
 import { fetchCurrentStock } from '../data/stock';
 import ArticleFormModal from '../components/ArticleFormModal';
+import RecettesTab from '../components/RecettesTab';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { PageLoader } from '../components/ui/Spinner';
 import { formatMAD, formatQty } from '../lib/utils';
+import { cn } from '../lib/utils';
+
+const TABS = [
+  { id: 'articles', label: 'Articles' },
+  { id: 'recettes', label: 'Recettes' },
+];
 
 // ── Page Catalogue ────────────────────────────────────────────
 const Catalogue = () => {
@@ -20,6 +27,7 @@ const Catalogue = () => {
   const canUpdate = usePermission('articles.update');
   const canDelete = usePermission('articles.delete');
 
+  const [activeTab,    setActiveTab]    = useState('articles');
   const [articles,     setArticles]     = useState([]);
   const [stock,        setStock]        = useState([]);
   const [categories,   setCategories]   = useState([]);
@@ -96,9 +104,9 @@ const Catalogue = () => {
   return (
     <div className="p-4 lg:p-6 max-w-5xl mx-auto">
       {/* En-tête */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="font-display text-3xl font-bold text-[var(--color-text)]">Catalogue</h1>
-        {canCreate && (
+        {activeTab === 'articles' && canCreate && (
           <Button
             onClick={() => { setEditTarget(null); setModalOpen(true); }}
             className="gap-2"
@@ -108,6 +116,23 @@ const Catalogue = () => {
         )}
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-[var(--color-border)] mb-6">
+        {TABS.map((t) => (
+          <button key={t.id} type="button" onClick={() => setActiveTab(t.id)}
+            className={cn(
+              'px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px',
+              activeTab === t.id
+                ? 'border-primary text-primary'
+                : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+            )}
+          >{t.label}</button>
+        ))}
+      </div>
+
+      {activeTab === 'recettes' && <RecettesTab />}
+
+      {activeTab === 'articles' && <>
       {/* Recherche + filtres */}
       <div className="flex flex-col gap-3 mb-6">
         <div className="relative">
@@ -244,6 +269,8 @@ const Catalogue = () => {
           </section>
         ))
       )}
+
+      </>}
 
       <ArticleFormModal
         open={modalOpen}
