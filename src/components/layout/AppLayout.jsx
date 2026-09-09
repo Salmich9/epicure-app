@@ -1,10 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import Sidebar from './Sidebar';
 
 const AppLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Le tiroir n'avait ni Echap ni blocage du defilement, alors que `Modal` a
+  // les deux depuis toujours. Sur iOS, le fond defilait sous le tiroir ouvert.
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handler = (e) => { if (e.key === 'Escape') setSidebarOpen(false); };
+    document.addEventListener('keydown', handler);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener('keydown', handler);
+    };
+  }, [sidebarOpen]);
 
   return (
     <div className="flex h-full bg-[var(--color-bg)]">
@@ -15,11 +29,21 @@ const AppLayout = () => {
 
       {/* Sidebar mobile (drawer) */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-40 flex lg:hidden">
+        <div className="fixed inset-0 z-40 flex lg:hidden" role="dialog" aria-modal="true">
           <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
           <div className="relative z-50">
             <Sidebar onClose={() => setSidebarOpen(false)} />
           </div>
+          {/* Un bouton fermer visible. L'icone `X` etait importee depuis
+              toujours et jamais posee — le tiroir ne se fermait que par le
+              fond ou par un lien de navigation. */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Fermer le menu"
+            className="relative z-50 m-3 min-h-touch min-w-touch flex items-center justify-center rounded-[var(--radius-md)] bg-white/90 text-[var(--color-text)] shadow-md self-start"
+          >
+            <X size={20} />
+          </button>
         </div>
       )}
 

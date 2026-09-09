@@ -14,6 +14,8 @@ import Modal from '../components/ui/Modal';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
+import CollapsibleSection from '../components/ui/CollapsibleSection';
+import useOpenSections from '../hooks/useOpenSections';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { PageLoader } from '../components/ui/Spinner';
 import { formatMAD, formatQty, formatDate, formatDateTime } from '../lib/utils';
@@ -203,7 +205,9 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
       const price = stock[a.id]?.average_cost ?? a.last_purchase_price ?? 0;
       return sum + qty * price;
     }, 0);
-  }, [articles, counts]);
+  // `stock` porte les couts moyens : sans lui dans les dependances, le
+  // total affiche restait calcule sur la carte de prix du premier rendu.
+  }, [articles, counts, stock]);
 
   const grouped = useMemo(() => {
     const map = {};
@@ -214,6 +218,8 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
     });
     return Object.values(map).sort((a, b) => (a.cat?.sort_order ?? 99) - (b.cat?.sort_order ?? 99));
   }, [articles]);
+
+  const { isOpen, toggle, openAll, closeAll, nbOuvertes } = useOpenSections('inventaire');
 
   if (loading || !inv) return <PageLoader />;
 
@@ -274,13 +280,39 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
         </div>
       </div>
 
-      {/* Lignes par catégorie */}
-      {grouped.map(({ cat, items }) => (
-        <section key={cat?.id ?? 'x'} className="mb-6">
-          <h2 className="font-display text-base font-semibold text-primary mb-2 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-accent inline-block" />
-            {cat?.name ?? '—'}
-          </h2>
+      {grouped.length > 1 && (
+        <div className="flex justify-end mb-2">
+          <button
+            type="button"
+            onClick={() => (nbOuvertes > 0 ? closeAll() : openAll(grouped.map((g) => g.cat?.id ?? 'x')))}
+            className="min-h-touch px-2 text-sm text-primary hover:underline"
+          >
+            {nbOuvertes > 0 ? 'Tout replier' : 'Tout déplier'}
+          </button>
+        </div>
+      )}
+
+      {/* Lignes par catégorie.
+          La mention latérale porte l'avancement — « 3/5 · 1 200 MAD ». C'est
+          l'information utile pendant un comptage : refermer une famille
+          terminée donne une vraie sensation de progression, et le compte reste
+          lisible une fois la famille repliée. */}
+      {grouped.map(({ cat, items }) => {
+        const id = cat?.id ?? 'x';
+        const comptes = items.filter((a) => String(counts[a.id]?.qty ?? '').trim() !== '').length;
+        const valeurCat = items.reduce((s, a) => {
+          const q = parseFloat(counts[a.id]?.qty) || 0;
+          return s + q * (stock[a.id]?.average_cost ?? a.last_purchase_price ?? 0);
+        }, 0);
+        return (
+        <CollapsibleSection
+          key={id}
+          title={cat?.name ?? '—'}
+          count={items.length}
+          aside={`${comptes}/${items.length} · ${formatMAD(valeurCat)}`}
+          open={isOpen(id)}
+          onToggle={() => toggle(id)}
+        >
           <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -320,7 +352,7 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
                               onChange={(e) => setQty(a.id, e.target.value)}
                               onBlur={() => handleBlurQty(a.id)}
                               placeholder=""
-                              className="w-24 h-10 text-right px-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                              className="w-24 h-11 text-right px-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                             />
                             {saving[a.id] && (
                               <span className="absolute -right-5 top-1/2 -translate-y-1/2 w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin" />
@@ -342,8 +374,9 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
               </tbody>
             </table>
           </div>
-        </section>
-      ))}
+        </CollapsibleSection>
+        );
+      })}
 
       {/* Modal de validation / signature */}
       <Modal

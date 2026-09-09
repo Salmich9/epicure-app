@@ -408,7 +408,7 @@ const ReglagesTab = () => {
                 type={type}
                 value={values[key] ?? ''}
                 onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
-                className="w-28 h-9 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] text-base sm:text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                className="w-28 h-11 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] text-base sm:text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               />
               <button
                 onClick={() => handleSave(key)}
@@ -523,21 +523,34 @@ const Parametres = () => {
     <div className="p-4 lg:p-6 max-w-4xl mx-auto">
       <h1 className="font-display text-3xl font-bold text-[var(--color-text)] mb-6">Paramètres</h1>
 
-      {/* Onglets */}
-      <div className="flex gap-1 mb-6 bg-warm-100 p-1 rounded-[var(--radius-md)] overflow-x-auto">
-        {visible.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex-1 min-w-max px-4 py-2 rounded-[var(--radius-sm)] text-sm font-medium transition-colors duration-150 min-h-[44px] whitespace-nowrap ${
-              tab === t.id
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Onglets.
+          Deux corrections, et la seconde est celle qu'on voit.
+
+          `flex-1` retire : combine a `min-w-max`, il empechait tout
+          retrecissement — six onglets reclamaient ~700 px dans 343.
+
+          Et le `p-1` passe sur un WRAPPER INTERNE : le padding droit d'un
+          conteneur `overflow-x-auto` n'est pas honore en fin de course par
+          Chrome et Safari. Le dernier onglet collait au bord, exactement la
+          marge cassee signalee. Un enfant, lui, porte sa marge jusqu'au bout.
+
+          `snap-x` : le defilement s'arrete proprement sur un onglet. */}
+      <div className="mb-6 bg-warm-100 rounded-[var(--radius-md)] overflow-x-auto snap-x snap-mandatory">
+        <div className="flex gap-1 p-1 w-max min-w-full">
+          {visible.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`snap-start min-w-max px-4 py-2 rounded-[var(--radius-sm)] text-sm font-medium transition-colors duration-150 min-h-touch whitespace-nowrap ${
+                tab === t.id
+                  ? 'bg-white text-primary shadow-sm'
+                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Contenu */}

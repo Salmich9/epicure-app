@@ -15,6 +15,8 @@ import { PageLoader } from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import CollapsibleSection from '../components/ui/CollapsibleSection';
+import useOpenSections from '../hooks/useOpenSections';
 import { formatMAD, formatQty, formatDateTime } from '../lib/utils';
 
 const TYPE_LABEL = {
@@ -276,11 +278,22 @@ const Depot = () => {
       })
       .forEach((l) => {
         const k = l.category_id ?? 'x';
-        if (!map[k]) map[k] = { nom: l.categorie, ordre: l.categorie_ordre ?? 99, items: [] };
+        // `id` : l'UUID de la famille. Il sert de cle de persistance du repli
+        // et de cle React. Sans lui, `key` valait `nom-ordre`, ni stable ni
+        // garantie unique, et toutes les sections auraient partage le meme
+        // etat replie.
+        if (!map[k]) map[k] = { id: k, nom: l.categorie, ordre: l.categorie_ordre ?? 99, items: [] };
         map[k].items.push(l);
       });
     return Object.values(map).sort((a, b) => a.ordre - b.ordre);
   }, [lignes, search, filterCat]);
+
+  const { isOpen, toggle, openAll, closeAll, nbOuvertes } = useOpenSections('depot');
+
+  // UNE RECHERCHE ACTIVE FORCE L'OUVERTURE, sans ecraser l'etat memorise.
+  // Sans ca la recherche parait cassee : elle trouve, mais dans des sections
+  // repliees. Recherche videe, tout revient a l'etat choisi.
+  const forceOpen = search.trim().length > 0 || Boolean(filterCat);
 
   const archiver = async () => {
     if (!aArchiver) return;
@@ -334,22 +347,35 @@ const Depot = () => {
         </select>
       </div>
 
+      {/* Compagnon du « tout replié » : sans lui, ouvrir dix-neuf familles
+          demande dix-neuf gestes. Masqué pendant une recherche, qui force
+          déjà l'ouverture — le bouton n'aurait alors aucun effet visible. */}
+      {!forceOpen && grouped.length > 1 && (
+        <div className="flex justify-end -mt-3 mb-3">
+          <button
+            type="button"
+            onClick={() => (nbOuvertes > 0 ? closeAll() : openAll(grouped.map((g) => g.id)))}
+            className="min-h-touch px-2 text-sm text-primary hover:underline"
+          >
+            {nbOuvertes > 0 ? 'Tout replier' : 'Tout déplier'}
+          </button>
+        </div>
+      )}
+
       {grouped.length === 0 ? (
         <div className="text-center py-16 text-[var(--color-text-muted)]">Aucun article correspondant.</div>
       ) : (
-        grouped.map(({ nom, ordre, items }) => {
+        grouped.map(({ id, nom, items }) => {
           const valeurCat = items.reduce((s, i) => s + Number(i.valeur_actuelle ?? 0), 0);
           return (
-            <section key={`${nom}-${ordre}`} className="mb-8">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-display text-lg font-semibold text-primary flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-accent inline-block" />
-                  {nom ?? '—'}
-                  <span className="text-sm font-normal text-[var(--color-text-faint)] font-sans">({items.length})</span>
-                </h2>
-                <span className="text-sm font-medium text-[var(--color-text-muted)]">{formatMAD(valeurCat)}</span>
-              </div>
-
+            <CollapsibleSection
+              key={id}
+              title={nom ?? '—'}
+              count={items.length}
+              aside={formatMAD(valeurCat)}
+              open={forceOpen || isOpen(id)}
+              onToggle={() => toggle(id)}
+            >
               <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -405,7 +431,7 @@ const Depot = () => {
                   </tbody>
                 </table>
               </div>
-            </section>
+            </CollapsibleSection>
           );
         })
       )}
