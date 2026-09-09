@@ -15,6 +15,8 @@ import { PageLoader } from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import CollapsibleSection from '../components/ui/CollapsibleSection';
+import useOpenSections from '../hooks/useOpenSections';
 import { formatMAD, formatQty, formatDateTime } from '../lib/utils';
 
 const TYPE_LABEL = {
@@ -61,22 +63,33 @@ const Entete = ({ evo, couverture }) => {
 
   const date = jourMois(evo.inventaire_date);
   const nonComptes = Number(couverture?.non_comptes_avec_stock ?? 0);
+  // Ni inventaire ni mouvement : dire « aucun inventaire validé » serait exact
+  // mais inutile. On dit ce qui est vrai et actionnable.
+  const catalogueVierge = Number(evo.valeur_totale) === 0
+    && Number(evo.mouvements_depuis ?? 0) === 0;
 
   return (
     <div className="bg-primary text-white rounded-[var(--radius-lg)] px-6 py-5 shadow-md max-w-md">
       <p className="text-white/60 text-xs uppercase tracking-wider font-medium">Valeur du dépôt</p>
       <p className="font-display text-4xl font-bold mt-1">{formatMAD(evo.valeur_totale)}</p>
 
+      {/* Trois cas, trois phrases. La formulation compte autant que le chiffre :
+          « 67 172 comptés + 2 000 achetés » se lisait comme si les 2 000
+          attendaient d'être validés. Ils ne le sont pas — le total ci-dessus
+          EST le chiffre courant, et chaque achat le met à jour tout seul. */}
       <p className="text-white/75 text-sm mt-2 leading-relaxed">
         {date ? (
           <>
-            <span className="font-medium">{formatMAD(evo.valeur_comptee)}</span> comptés le {date}
+            Dont <span className="font-medium">{formatMAD(evo.valeur_comptee)}</span> comptés le {date}
             {postes.map((p) => (
               <span key={p.k}>
                 {' · '}{p.signe} {formatMAD(Math.abs(Number(evo[p.k])))} {p.mot}
               </span>
             ))}
+            {' depuis.'}
           </>
+        ) : catalogueVierge ? (
+          <>Catalogue vierge — le premier inventaire fera référence.</>
         ) : (
           <>Aucun inventaire validé — ce chiffre ne repose que sur les mouvements saisis.</>
         )}
@@ -265,11 +278,22 @@ const Depot = () => {
       })
       .forEach((l) => {
         const k = l.category_id ?? 'x';
-        if (!map[k]) map[k] = { nom: l.categorie, ordre: l.categorie_ordre ?? 99, items: [] };
+        // `id` : l'UUID de la famille. Il sert de cle de persistance du repli
+        // et de cle React. Sans lui, `key` valait `nom-ordre`, ni stable ni
+        // garantie unique, et toutes les sections auraient partage le meme
+        // etat replie.
+        if (!map[k]) map[k] = { id: k, nom: l.categorie, ordre: l.categorie_ordre ?? 99, items: [] };
         map[k].items.push(l);
       });
     return Object.values(map).sort((a, b) => a.ordre - b.ordre);
   }, [lignes, search, filterCat]);
+
+  const { isOpen, toggle, openAll, closeAll, nbOuvertes } = useOpenSections('depot');
+
+  // UNE RECHERCHE ACTIVE FORCE L'OUVERTURE, sans ecraser l'etat memorise.
+  // Sans ca la recherche parait cassee : elle trouve, mais dans des sections
+  // repliees. Recherche videe, tout revient a l'etat choisi.
+  const forceOpen = search.trim().length > 0 || Boolean(filterCat);
 
   const archiver = async () => {
     if (!aArchiver) return;
@@ -307,7 +331,7 @@ const Depot = () => {
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-faint)]" />
           <input
-            className="w-full h-11 pl-9 pr-4 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            className="w-full h-11 pl-9 pr-4 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             placeholder="Rechercher un article…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -316,30 +340,43 @@ const Depot = () => {
         <select
           value={filterCat}
           onChange={(e) => setFilterCat(e.target.value)}
-          className="h-11 pl-3 pr-8 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          className="h-11 pl-3 pr-8 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-base sm:text-sm text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
         >
           <option value="">Toutes les catégories</option>
           {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>
 
+      {/* Compagnon du « tout replié » : sans lui, ouvrir dix-neuf familles
+          demande dix-neuf gestes. Masqué pendant une recherche, qui force
+          déjà l'ouverture — le bouton n'aurait alors aucun effet visible. */}
+      {!forceOpen && grouped.length > 1 && (
+        <div className="flex justify-end -mt-3 mb-3">
+          <button
+            type="button"
+            onClick={() => (nbOuvertes > 0 ? closeAll() : openAll(grouped.map((g) => g.id)))}
+            className="min-h-touch px-2 text-sm text-primary hover:underline"
+          >
+            {nbOuvertes > 0 ? 'Tout replier' : 'Tout déplier'}
+          </button>
+        </div>
+      )}
+
       {grouped.length === 0 ? (
         <div className="text-center py-16 text-[var(--color-text-muted)]">Aucun article correspondant.</div>
       ) : (
-        grouped.map(({ nom, ordre, items }) => {
+        grouped.map(({ id, nom, items }) => {
           const valeurCat = items.reduce((s, i) => s + Number(i.valeur_actuelle ?? 0), 0);
           return (
-            <section key={`${nom}-${ordre}`} className="mb-8">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-display text-lg font-semibold text-primary flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-accent inline-block" />
-                  {nom ?? '—'}
-                  <span className="text-sm font-normal text-[var(--color-text-faint)] font-sans">({items.length})</span>
-                </h2>
-                <span className="text-sm font-medium text-[var(--color-text-muted)]">{formatMAD(valeurCat)}</span>
-              </div>
-
-              <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-hidden">
+            <CollapsibleSection
+              key={id}
+              title={nom ?? '—'}
+              count={items.length}
+              aside={formatMAD(valeurCat)}
+              open={forceOpen || isOpen(id)}
+              onToggle={() => toggle(id)}
+            >
+              <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-warm-50 border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-wide">
@@ -394,7 +431,7 @@ const Depot = () => {
                   </tbody>
                 </table>
               </div>
-            </section>
+            </CollapsibleSection>
           );
         })
       )}

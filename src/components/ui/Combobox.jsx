@@ -66,7 +66,7 @@ const Combobox = ({
       )}
       <div className="relative">
         <input
-          className="w-full h-11 pl-3 pr-9 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          className="w-full h-11 pl-3 pr-9 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           placeholder={placeholder}
           value={query}
           onChange={(e) => { setQuery(e.target.value); onChange(null); setOpen(true); }}

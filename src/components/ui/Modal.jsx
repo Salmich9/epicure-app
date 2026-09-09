@@ -30,18 +30,27 @@ const Modal = ({ open, onClose, title, children, size = 'md', className }) => {
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
-      {/* Panel */}
+      {/* Panneau.
+          `max-h-[85svh]` + colonne flex + corps scrollable : sans ça, un
+          contenu plus haut que l'écran déborde PAR LE HAUT — on est en
+          `items-end` sur mobile — hors de tout conteneur scrollable. Le
+          formulaire d'achat fait ~750 px : sur un écran de 667, son titre et
+          son premier champ étaient inatteignables.
+
+          `svh` et non `dvh` : `dvh` grandit quand la barre d'URL de Safari se
+          rétracte, et le panneau sauterait pendant le défilement. La petite
+          hauteur, elle, ne bouge jamais. */}
       <div
         className={cn(
           'relative z-10 w-full bg-white rounded-[var(--radius-lg)] shadow-xl',
-          'animate-in fade-in slide-in-from-bottom-4 duration-200',
+          'max-h-[85svh] flex flex-col',
           widths[size],
           className
         )}
       >
         {/* Header */}
         {title && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
+          <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
             <h2 className="font-display text-xl font-semibold text-[var(--color-text)]">{title}</h2>
             {onClose && (
               <button
@@ -54,8 +63,9 @@ const Modal = ({ open, onClose, title, children, size = 'md', className }) => {
             )}
           </div>
         )}
-        {/* Body */}
-        <div className="px-6 py-4">{children}</div>
+        {/* Corps. `overscroll-contain` empêche le défilement de se propager à
+            la page derrière une fois arrivé en bout de course. */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4">{children}</div>
       </div>
     </div>
   );

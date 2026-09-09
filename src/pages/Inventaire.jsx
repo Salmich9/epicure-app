@@ -14,6 +14,8 @@ import Modal from '../components/ui/Modal';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
+import CollapsibleSection from '../components/ui/CollapsibleSection';
+import useOpenSections from '../hooks/useOpenSections';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { PageLoader } from '../components/ui/Spinner';
 import { formatMAD, formatQty, formatDate, formatDateTime } from '../lib/utils';
@@ -203,7 +205,9 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
       const price = stock[a.id]?.average_cost ?? a.last_purchase_price ?? 0;
       return sum + qty * price;
     }, 0);
-  }, [articles, counts]);
+  // `stock` porte les couts moyens : sans lui dans les dependances, le
+  // total affiche restait calcule sur la carte de prix du premier rendu.
+  }, [articles, counts, stock]);
 
   const grouped = useMemo(() => {
     const map = {};
@@ -215,21 +219,32 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
     return Object.values(map).sort((a, b) => (a.cat?.sort_order ?? 99) - (b.cat?.sort_order ?? 99));
   }, [articles]);
 
+  const { isOpen, toggle, openAll, closeAll, nbOuvertes } = useOpenSections('inventaire');
+
   if (loading || !inv) return <PageLoader />;
 
   const isDraft = inv.status === 'brouillon';
 
   return (
     <div className="p-4 lg:p-6 max-w-4xl mx-auto">
-      {/* En-tête */}
-      <div className="flex items-start gap-3 mb-6">
+      {/* En-tête.
+          `flex-wrap` : sans lui, le bouton retour + le titre + la valeur +
+          « Pré-remplir » + « Signer » reclamaient ~380 px pour 343 disponibles
+          sur un iPhone SE. « Signer » sortait de l'ecran — on ne pouvait pas
+          valider un inventaire depuis un telephone.
+
+          `sticky` : le total temps reel et les deux boutons disparaissaient
+          des qu'on descendait dans la saisie. Ils suivent maintenant.
+          Le `-mx-4 px-4` compense le padding de la page pour que le fond
+          couvre toute la largeur pendant le defilement. */}
+      <div className="sticky top-0 z-20 bg-[var(--color-bg)] -mx-4 px-4 lg:-mx-6 lg:px-6 py-3 mb-4 flex items-start gap-3 flex-wrap border-b border-transparent">
         <button
           onClick={onBack}
           className="p-2 rounded-lg hover:bg-warm-100 text-[var(--color-text-muted)] transition-colors mt-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
         >
           <ArrowLeft size={20} />
         </button>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="font-display text-2xl font-bold text-[var(--color-text)]">{inv.label}</h1>
             <Badge variant={inv.status}>{inv.status}</Badge>
@@ -241,8 +256,9 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
             )}
           </p>
         </div>
-        {/* Total + bouton valider */}
-        <div className="flex items-center gap-3">
+        {/* Total + actions. `w-full sm:w-auto` : sur telephone ce bloc passe a
+            la ligne entiere plutot que de comprimer le titre a zero. */}
+        <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-3">
           <div className="text-right">
             <p className="text-xs text-[var(--color-text-faint)]">Valeur</p>
             <p className="font-display text-xl font-bold text-primary">
@@ -250,7 +266,7 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
             </p>
           </div>
           {isDraft && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-shrink-0">
               <Button variant="outline" onClick={prefillFromStock} className="gap-2">
                 <Zap size={16} /> Pré-remplir
               </Button>
@@ -264,14 +280,40 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
         </div>
       </div>
 
-      {/* Lignes par catégorie */}
-      {grouped.map(({ cat, items }) => (
-        <section key={cat?.id ?? 'x'} className="mb-6">
-          <h2 className="font-display text-base font-semibold text-primary mb-2 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-accent inline-block" />
-            {cat?.name ?? '—'}
-          </h2>
-          <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-hidden">
+      {grouped.length > 1 && (
+        <div className="flex justify-end mb-2">
+          <button
+            type="button"
+            onClick={() => (nbOuvertes > 0 ? closeAll() : openAll(grouped.map((g) => g.cat?.id ?? 'x')))}
+            className="min-h-touch px-2 text-sm text-primary hover:underline"
+          >
+            {nbOuvertes > 0 ? 'Tout replier' : 'Tout déplier'}
+          </button>
+        </div>
+      )}
+
+      {/* Lignes par catégorie.
+          La mention latérale porte l'avancement — « 3/5 · 1 200 MAD ». C'est
+          l'information utile pendant un comptage : refermer une famille
+          terminée donne une vraie sensation de progression, et le compte reste
+          lisible une fois la famille repliée. */}
+      {grouped.map(({ cat, items }) => {
+        const id = cat?.id ?? 'x';
+        const comptes = items.filter((a) => String(counts[a.id]?.qty ?? '').trim() !== '').length;
+        const valeurCat = items.reduce((s, a) => {
+          const q = parseFloat(counts[a.id]?.qty) || 0;
+          return s + q * (stock[a.id]?.average_cost ?? a.last_purchase_price ?? 0);
+        }, 0);
+        return (
+        <CollapsibleSection
+          key={id}
+          title={cat?.name ?? '—'}
+          count={items.length}
+          aside={`${comptes}/${items.length} · ${formatMAD(valeurCat)}`}
+          open={isOpen(id)}
+          onToggle={() => toggle(id)}
+        >
+          <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-warm-50 border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-wide">
@@ -310,7 +352,7 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
                               onChange={(e) => setQty(a.id, e.target.value)}
                               onBlur={() => handleBlurQty(a.id)}
                               placeholder=""
-                              className="w-24 h-10 text-right px-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                              className="w-24 h-11 text-right px-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                             />
                             {saving[a.id] && (
                               <span className="absolute -right-5 top-1/2 -translate-y-1/2 w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin" />
@@ -332,8 +374,9 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
               </tbody>
             </table>
           </div>
-        </section>
-      ))}
+        </CollapsibleSection>
+        );
+      })}
 
       {/* Modal de validation / signature */}
       <Modal

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, Fragment, useMemo, useCallback } from 'react';
 import {
   Plus, ChevronRight, ArrowLeft, Calendar, MapPin, Users,
   Trash2, Printer, PackageMinus, PackageCheck, CheckCircle2,
@@ -281,11 +281,15 @@ const WithdrawalModal = ({ open, onClose, onSave, stock }) => {
 
   return (
     <Modal open={open} onClose={onClose} title="Prélèvement" size="xl">
-      <div className="flex flex-col gap-3" style={{ maxHeight: '70vh' }}>
+      {/* La hauteur etait forcee ici a 70vh/52vh pour contourner un Modal sans
+          `max-h`. Modal borne desormais sa propre hauteur et fait defiler son
+          corps : garder ces valeurs rendrait la modale plus petite, pas plus
+          grande. Le panier occupe la place disponible et rien de plus. */}
+      <div className="flex flex-col gap-3 min-h-0">
         {/* Barre de recherche + compteur */}
         <div className="flex items-center gap-3">
           <input
-            className="flex-1 h-10 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="flex-1 h-11 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             placeholder="Filtrer un article…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -296,7 +300,7 @@ const WithdrawalModal = ({ open, onClose, onSave, stock }) => {
         </div>
 
         {/* Tableau scrollable */}
-        <div className="overflow-y-auto flex-1 border border-[var(--color-border)] rounded-[var(--radius-md)]" style={{ maxHeight: '52vh' }}>
+        <div className="overflow-y-auto flex-1 min-h-0 border border-[var(--color-border)] rounded-[var(--radius-md)]">
           {byCategory.length === 0 && (
             <p className="text-sm text-center text-[var(--color-text-faint)] py-8">Aucun article en stock.</p>
           )}
@@ -330,7 +334,7 @@ const WithdrawalModal = ({ open, onClose, onSave, stock }) => {
                       onChange={(e) => setQty(r._idx, e.target.value)}
                       placeholder="0"
                       className={cn(
-                        'w-24 h-9 text-right px-2 rounded-[var(--radius-sm)] border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30',
+                        'w-24 h-9 text-right px-2 rounded-[var(--radius-sm)] border text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30',
                         parseFloat(r.qty) > r.available
                           ? 'border-red-400 bg-red-50'
                           : hasQty
@@ -505,7 +509,7 @@ const RetourSection = ({ event, withdrawals, returns, onValidated, isClosed }) =
                       type="number" min="0" step="0.001" max={withdrawn}
                       value={returnQtys[article.id] ?? ''}
                       onChange={(e) => setReturnQtys((prev) => ({ ...prev, [article.id]: e.target.value }))}
-                      className="w-24 h-9 text-right px-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      className="w-24 h-11 text-right px-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                     />
                   ) : (
                     <span className="font-medium">{formatQty(returned)} {article.units?.abbreviation}</span>
@@ -749,8 +753,8 @@ const EvenementDetail = ({ eventId, onBack }) => {
                 </thead>
                 <tbody>
                   {aggregatedWithdrawals.map(({ article, qty, lines }) => (
-                    <>
-                      <tr key={article.id} className="border-b border-[var(--color-border)]">
+                    <Fragment key={article.id}>
+                      <tr className="border-b border-[var(--color-border)]">
                         <td className="px-3 py-2.5 font-medium">{article.name}<span className="text-xs text-[var(--color-text-faint)] ml-1">({article.categories?.name})</span></td>
                         <td className="px-3 py-2.5 text-right font-semibold text-accent">{formatQty(qty)} {article.units?.abbreviation}</td>
                         <td className="px-3 py-2.5 text-right text-[var(--color-text-muted)] hidden md:table-cell">{formatMAD(qty * (article.last_purchase_price ?? 0))}</td>
@@ -771,7 +775,7 @@ const EvenementDetail = ({ eventId, onBack }) => {
                           )}
                         </tr>
                       ))}
-                    </>
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
