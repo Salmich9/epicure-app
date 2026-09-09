@@ -2,7 +2,13 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <!-- `maximum-scale=1.0` retire : il bloquait le pincer-zoomer, ce qui est un
+         blocage d'accessibilite — et Safari iOS l'ignore de toute facon pour son
+         zoom automatique au focus. Ce dernier se regle par des champs a 16 px,
+         fait dans le meme commit ; l'ordre compte, retirer la contrainte avant
+         les champs aurait laisse l'utilisateur zoome sans retour.
+         `viewport-fit=cover` : c'est lui qui rend `env(safe-area-inset-*)` non nul. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#2E4A3F" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

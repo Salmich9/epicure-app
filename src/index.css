@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  /* SAFARI iOS ZOOME SUR TOUT CHAMP SOUS 16 PX, et ignore `maximum-scale`.
+     L'ecran sautait a chaque saisie, sans moyen propre de revenir.
+
+     Ce n'est qu'un filet : une classe `text-sm` posee en JSX bat un selecteur
+     d'element. Les champs existants sont passes en `text-base sm:text-sm` un
+     par un ; cette regle protege ceux qu'on ecrira demain sans y penser.
+
+     Au-dela de `sm`, on rend la main a la typographie du composant : le zoom
+     iOS ne concerne que les petits ecrans. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  @media (min-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: inherit;
+    }
+  }
+}
+
+
 /* ============================================================
    DESIGN TOKENS — modifiables ici sans toucher aux composants
    ============================================================ */

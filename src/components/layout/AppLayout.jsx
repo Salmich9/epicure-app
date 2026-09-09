@@ -24,7 +24,12 @@ const AppLayout = () => {
       )}
 
       {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* Pas d'`overflow-hidden` ici : il rendait TOUT debordement
+          horizontal definitivement invisible et injoignable au doigt,
+          dans toute l'app. Chaque conteneur de table porte desormais son
+          propre `overflow-x-auto` — c'est la qu'un debordement se
+          rattrape, pas au niveau du layout. */}
+      <div className="flex-1 flex flex-col min-w-0">
         {/* TopBar mobile */}
         <header className="lg:hidden flex items-center justify-between px-4 h-14 bg-white border-b border-[var(--color-border)]">
           <button

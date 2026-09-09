@@ -61,22 +61,33 @@ const Entete = ({ evo, couverture }) => {
 
   const date = jourMois(evo.inventaire_date);
   const nonComptes = Number(couverture?.non_comptes_avec_stock ?? 0);
+  // Ni inventaire ni mouvement : dire « aucun inventaire validé » serait exact
+  // mais inutile. On dit ce qui est vrai et actionnable.
+  const catalogueVierge = Number(evo.valeur_totale) === 0
+    && Number(evo.mouvements_depuis ?? 0) === 0;
 
   return (
     <div className="bg-primary text-white rounded-[var(--radius-lg)] px-6 py-5 shadow-md max-w-md">
       <p className="text-white/60 text-xs uppercase tracking-wider font-medium">Valeur du dépôt</p>
       <p className="font-display text-4xl font-bold mt-1">{formatMAD(evo.valeur_totale)}</p>
 
+      {/* Trois cas, trois phrases. La formulation compte autant que le chiffre :
+          « 67 172 comptés + 2 000 achetés » se lisait comme si les 2 000
+          attendaient d'être validés. Ils ne le sont pas — le total ci-dessus
+          EST le chiffre courant, et chaque achat le met à jour tout seul. */}
       <p className="text-white/75 text-sm mt-2 leading-relaxed">
         {date ? (
           <>
-            <span className="font-medium">{formatMAD(evo.valeur_comptee)}</span> comptés le {date}
+            Dont <span className="font-medium">{formatMAD(evo.valeur_comptee)}</span> comptés le {date}
             {postes.map((p) => (
               <span key={p.k}>
                 {' · '}{p.signe} {formatMAD(Math.abs(Number(evo[p.k])))} {p.mot}
               </span>
             ))}
+            {' depuis.'}
           </>
+        ) : catalogueVierge ? (
+          <>Catalogue vierge — le premier inventaire fera référence.</>
         ) : (
           <>Aucun inventaire validé — ce chiffre ne repose que sur les mouvements saisis.</>
         )}
@@ -307,7 +318,7 @@ const Depot = () => {
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-faint)]" />
           <input
-            className="w-full h-11 pl-9 pr-4 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            className="w-full h-11 pl-9 pr-4 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             placeholder="Rechercher un article…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -316,7 +327,7 @@ const Depot = () => {
         <select
           value={filterCat}
           onChange={(e) => setFilterCat(e.target.value)}
-          className="h-11 pl-3 pr-8 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          className="h-11 pl-3 pr-8 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-base sm:text-sm text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
         >
           <option value="">Toutes les catégories</option>
           {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -339,7 +350,7 @@ const Depot = () => {
                 <span className="text-sm font-medium text-[var(--color-text-muted)]">{formatMAD(valeurCat)}</span>
               </div>
 
-              <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-hidden">
+              <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-warm-50 border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-wide">

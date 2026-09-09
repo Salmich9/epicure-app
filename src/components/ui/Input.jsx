@@ -10,7 +10,7 @@ const Input = ({ label, error, hint, className, containerClassName, ...props }) 
     <input
       className={cn(
         'h-11 rounded-[var(--radius-md)] border border-[var(--color-border)]',
-        'px-3 text-sm bg-white text-[var(--color-text)]',
+        'px-3 text-base sm:text-sm bg-white text-[var(--color-text)]',
         'placeholder:text-[var(--color-text-faint)]',
         'focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary',
         'transition-colors duration-150',
@@ -34,7 +34,7 @@ export const Select = ({ label, error, children, className, containerClassName, 
     <select
       className={cn(
         'h-11 rounded-[var(--radius-md)] border border-[var(--color-border)]',
-        'px-3 text-sm bg-white text-[var(--color-text)]',
+        'px-3 text-base sm:text-sm bg-white text-[var(--color-text)]',
         'focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary',
         'transition-colors duration-150',
         error && 'border-red-400',

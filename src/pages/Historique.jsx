@@ -53,7 +53,7 @@ const AchatsTab = () => {
         <div className="relative flex-1 min-w-[180px]">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-faint)]" />
           <input
-            className="w-full h-10 pl-9 pr-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="w-full h-10 pl-9 pr-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             placeholder="Rechercher un article ou un fournisseur…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -66,7 +66,7 @@ const AchatsTab = () => {
         )}
       </div>
 
-      <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-hidden">
+      <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-x-auto">
         {filtres.length === 0 ? (
           <div className="py-16 text-center text-sm text-[var(--color-text-faint)]">
             <ShoppingCart size={32} className="mx-auto mb-3 opacity-30" />
@@ -169,7 +169,7 @@ const Historique = () => {
         <div className="relative flex-1 min-w-[180px]">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-faint)]" />
           <input
-            className="w-full h-10 pl-9 pr-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="w-full h-10 pl-9 pr-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             placeholder="Rechercher…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -178,7 +178,7 @@ const Historique = () => {
         <select
           value={entity}
           onChange={(e) => setEntity(e.target.value)}
-          className="h-10 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          className="h-10 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
         >
           {ENTITIES.map((e) => <option key={e} value={e}>{e || '— Toutes entités —'}</option>)}
         </select>
@@ -186,14 +186,14 @@ const Historique = () => {
           type="date"
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
-          className="h-10 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm focus:outline-none"
+          className="h-10 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-base sm:text-sm focus:outline-none"
           placeholder="Du"
         />
         <input
           type="date"
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
-          className="h-10 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-sm focus:outline-none"
+          className="h-10 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white text-base sm:text-sm focus:outline-none"
           placeholder="Au"
         />
       </div>
@@ -203,7 +203,7 @@ const Historique = () => {
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-[var(--color-text-muted)]">Aucun événement trouvé.</div>
       ) : (
-        <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-hidden">
+        <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-warm-50 border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-wide">

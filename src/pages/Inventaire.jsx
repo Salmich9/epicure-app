@@ -221,15 +221,24 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
 
   return (
     <div className="p-4 lg:p-6 max-w-4xl mx-auto">
-      {/* En-tête */}
-      <div className="flex items-start gap-3 mb-6">
+      {/* En-tête.
+          `flex-wrap` : sans lui, le bouton retour + le titre + la valeur +
+          « Pré-remplir » + « Signer » reclamaient ~380 px pour 343 disponibles
+          sur un iPhone SE. « Signer » sortait de l'ecran — on ne pouvait pas
+          valider un inventaire depuis un telephone.
+
+          `sticky` : le total temps reel et les deux boutons disparaissaient
+          des qu'on descendait dans la saisie. Ils suivent maintenant.
+          Le `-mx-4 px-4` compense le padding de la page pour que le fond
+          couvre toute la largeur pendant le defilement. */}
+      <div className="sticky top-0 z-20 bg-[var(--color-bg)] -mx-4 px-4 lg:-mx-6 lg:px-6 py-3 mb-4 flex items-start gap-3 flex-wrap border-b border-transparent">
         <button
           onClick={onBack}
           className="p-2 rounded-lg hover:bg-warm-100 text-[var(--color-text-muted)] transition-colors mt-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
         >
           <ArrowLeft size={20} />
         </button>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="font-display text-2xl font-bold text-[var(--color-text)]">{inv.label}</h1>
             <Badge variant={inv.status}>{inv.status}</Badge>
@@ -241,8 +250,9 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
             )}
           </p>
         </div>
-        {/* Total + bouton valider */}
-        <div className="flex items-center gap-3">
+        {/* Total + actions. `w-full sm:w-auto` : sur telephone ce bloc passe a
+            la ligne entiere plutot que de comprimer le titre a zero. */}
+        <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-3">
           <div className="text-right">
             <p className="text-xs text-[var(--color-text-faint)]">Valeur</p>
             <p className="font-display text-xl font-bold text-primary">
@@ -250,7 +260,7 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
             </p>
           </div>
           {isDraft && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-shrink-0">
               <Button variant="outline" onClick={prefillFromStock} className="gap-2">
                 <Zap size={16} /> Pré-remplir
               </Button>
@@ -271,7 +281,7 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
             <span className="w-2 h-2 rounded-full bg-accent inline-block" />
             {cat?.name ?? '—'}
           </h2>
-          <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-hidden">
+          <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-warm-50 border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-wide">
@@ -310,7 +320,7 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
                               onChange={(e) => setQty(a.id, e.target.value)}
                               onBlur={() => handleBlurQty(a.id)}
                               placeholder=""
-                              className="w-24 h-10 text-right px-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                              className="w-24 h-10 text-right px-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                             />
                             {saving[a.id] && (
                               <span className="absolute -right-5 top-1/2 -translate-y-1/2 w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin" />

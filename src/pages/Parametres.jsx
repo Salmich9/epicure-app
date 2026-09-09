@@ -230,7 +230,7 @@ const UtilisateursTab = () => {
       <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-hidden">
         {users.map((u) => (
           <div key={u.id} className={`flex items-center gap-3 px-4 py-3 border-b border-[var(--color-border)] last:border-0 ${!u.active ? 'opacity-50' : ''}`}>
-            <div className="w-9 h-9 rounded-full bg-primary-100 text-primary flex items-center justify-center text-sm font-bold flex-shrink-0">
+            <div className="w-9 h-9 rounded-full bg-primary-100 text-primary flex items-center justify-center text-base sm:text-sm font-bold flex-shrink-0">
               {u.full_name[0].toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
@@ -408,7 +408,7 @@ const ReglagesTab = () => {
                 type={type}
                 value={values[key] ?? ''}
                 onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
-                className="w-28 h-9 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                className="w-28 h-9 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] text-base sm:text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               />
               <button
                 onClick={() => handleSave(key)}
@@ -471,7 +471,7 @@ const FournisseursTab = () => {
           <div className="divide-y divide-[var(--color-border)]">
             {liste.map((s) => (
               <div key={s.id} className={`flex items-center gap-3 px-4 py-3 ${!s.active ? 'opacity-50' : ''}`}>
-                <div className="w-9 h-9 rounded-full bg-primary-100 text-primary flex items-center justify-center text-sm font-bold flex-shrink-0">
+                <div className="w-9 h-9 rounded-full bg-primary-100 text-primary flex items-center justify-center text-base sm:text-sm font-bold flex-shrink-0">
                   {s.name[0].toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
