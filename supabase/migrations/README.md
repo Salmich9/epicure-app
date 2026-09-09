@@ -161,6 +161,49 @@ L'asymétrie avec `annuler_prelevement` est voulue : un prélèvement erroné su
 événement ouvert est un brouillon, il se supprime. Un achat est une pièce
 comptable, il se compense.
 
+## Le catalogue repart de zéro — `040` et `041`
+
+**`040_depot_evolution_toujours_une_ligne.sql`** — `v_depot_evolution` groupait
+sur `v_depot_decomposition` : sans article actif elle rendait **zéro ligne**,
+donc `fetchDepotEvolution` rendait `null` et l'en-tête du Dépôt ne s'affichait
+pas du tout — pas même « 0 MAD ». Un dépôt vide est un fait ; l'absence de fait
+est un bug. Le cas s'est produit le 09/09, tous les articles ayant été archivés.
+
+La vue part désormais de `v_depot_reference`, qui rend toujours une ligne par
+construction, et joint la décomposition en `LEFT JOIN`. Même correction pour
+`v_inventaire_couverture`, où `count(*)` devient `count(d.article_id)` — avec un
+LEFT JOIN sans correspondance la ligne existe quand même, et `count(*)` aurait
+répondu 1 là où la réponse est 0.
+
+`create or replace` et jamais `drop`/`create` : un `drop` révoquerait en
+silence le `grant select … to barometre_lecture`. C'est la leçon de la `036`.
+
+**`041_reset_catalogue.sql`** — les 51 articles, 179 lignes d'inventaire,
+5 inventaires, 149 mouvements, 10 achats, 6 événements et 328 lignes de journal
+partent. Restent les référentiels : 19 catégories, 16 unités, 7 fournisseurs,
+5 utilisateurs, les rôles, les permissions et les 7 réglages.
+
+Archivé avant suppression, comme la `037` l'avait fait pour les recettes :
+`docs/archives/articles-2026-09-09.json` et `audit_log-2026-09-09.json`. Sans le
+second, plus rien n'attesterait qu'un catalogue a existé entre juin et
+septembre.
+
+Le verrou d'ajout seul de la `035` est levé par `disable trigger` puis
+`enable`, et non en empruntant le drapeau d'`annuler_prelevement`. Les deux sont
+aussi sûres — le DDL est transactionnel — mais le drapeau affirmerait quelque
+chose de faux : que ce reset est l'annulation d'un prélèvement.
+
+Un garde-fou refuse la migration si un article est redevenu actif entre l'audit
+et l'exécution.
+
+Vérifié après coup : verrou remis (`tgenabled = 'O'`) et mordant à nouveau —
+sur une ligne témoin réelle, DELETE et UPDATE sont refusés. Un test sur table
+vide n'aurait rien prouvé : un trigger par ligne ne se déclenche pas sans ligne.
+
+Les 9 photos du bucket `article_photos` survivent, orphelines. Les effacer en
+SQL laisserait les fichiers dans le stockage objet, injoignables — à retirer
+via le tableau de bord Storage.
+
 Les sections ci-dessous décrivent des migrations désormais annulées par la 025.
 Elles sont conservées pour l'historique.
 
