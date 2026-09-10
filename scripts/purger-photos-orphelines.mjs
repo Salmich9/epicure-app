@@ -24,8 +24,13 @@
  *   node scripts/purger-photos-orphelines.mjs                # montre
  *   node scripts/purger-photos-orphelines.mjs --confirmer    # supprime
  *
- * La cle `service_role` se passe pour une commande, elle ne s'ecrit pas dans
- * un fichier suivi par git :
+ * IL FAUT LA CLE `service_role`. Depuis la migration 046, la cle publique ne
+ * peut plus supprimer dans ce bucket. C'etait une faille : compilee dans le
+ * bundle envoye au navigateur, elle permettait a tout visiteur d'effacer le
+ * catalogue de photos. Un outil de maintenance s'authentifie, une page web non.
+ *
+ * Elle se passe pour une commande, elle ne s'ecrit pas dans un fichier suivi
+ * par git :
  *
  *   SUPABASE_SERVICE_ROLE_KEY="…" node scripts/purger-photos-orphelines.mjs
  */
@@ -140,6 +145,19 @@ async function main() {
   const { data, error } = await sb.storage.from(BUCKET)
     .remove(orphelins.map((f) => f.name));
   if (error) throw new Error(`Suppression : ${error.message}`);
+
+  // DEPUIS LA MIGRATION 046, LA CLE PUBLIQUE NE SUPPRIME PLUS — et la RLS
+  // refuse EN SILENCE : `remove()` ne rend AUCUNE erreur, juste une liste
+  // vide. Sans ce message, le script annoncerait « 0 fichier supprime » et
+  // on chercherait du cote du bucket au lieu de la cle.
+  if (data.length === 0 && orphelins.length > 0) {
+    console.error(
+      `\nAucun fichier supprime, et pourtant ${orphelins.length} orphelin(s).`
+      + `\nC'est presque surement la cle : depuis la 046, seul service_role`
+      + `\npeut supprimer dans ce bucket. La cle publique lit et depose, rien de plus.`
+    );
+    process.exit(1);
+  }
 
   console.log(`\n${data.length} fichier(s) supprime(s).`);
 
