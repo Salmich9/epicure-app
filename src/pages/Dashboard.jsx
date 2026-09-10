@@ -92,7 +92,7 @@ const Dashboard = () => {
       const [s, e, a, ac] = await Promise.all([
         force ? fetchDashboardStats()    : withCache('dashboard_stats',    fetchDashboardStats,    ttl),
         force ? fetchUpcomingEvents()    : withCache('dashboard_events',   fetchUpcomingEvents,    ttl),
-        force ? fetchAlertArticles()     : withCache('dashboard_alerts',   fetchAlertArticles,     ttl),
+        force ? fetchAlertArticles()     : withCache('dashboard_alerts_v2', fetchAlertArticles,    ttl),
         force ? fetchRecentActivity()    : withCache('dashboard_activity', fetchRecentActivity,    ttl),
       ]);
       setStats(s); setEvents(e); setAlerts(a); setActivity(ac);
@@ -217,8 +217,14 @@ const Dashboard = () => {
         <div className="bg-white rounded-[var(--radius-lg)] border border-[var(--color-border)] overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
             <h2 className="font-display text-lg font-semibold text-[var(--color-text)]">Articles en alerte stock</h2>
-            <button onClick={() => navigate('/depot')} className="text-xs text-primary hover:underline flex items-center gap-0.5">
-              Dépôt <ArrowRight size={12} />
+            {/* Une porte, pas une seconde implémentation : le bon de commande
+                vit dans le Dépôt, seul écran opérationnel. `state` plutôt qu'un
+                paramètre d'URL — rien ne reste dans la barre d'adresse. */}
+            <button
+              onClick={() => navigate('/depot', { state: alerts.length > 0 ? { commande: true } : undefined })}
+              className="text-xs text-primary hover:underline flex items-center gap-0.5"
+            >
+              {alerts.length > 0 ? 'Commander' : 'Dépôt'} <ArrowRight size={12} />
             </button>
           </div>
           {alerts.length === 0 ? (
@@ -231,12 +237,12 @@ const Dashboard = () => {
               {alerts.slice(0, 6).map((a) => (
                 <div key={a.article_id} className="flex items-center justify-between px-5 py-3">
                   <div>
-                    <p className="text-sm font-medium text-[var(--color-text)]">{a.name}</p>
-                    <p className="text-xs text-[var(--color-text-muted)]">{a.categories?.name}</p>
+                    <p className="text-sm font-medium text-[var(--color-text)]">{a.article}</p>
+                    <p className="text-xs text-[var(--color-text-muted)]">{a.categorie}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-accent">{formatQty(a.quantity)} {a.units?.abbreviation}</p>
-                    <p className="text-xs text-[var(--color-text-faint)]">seuil : {formatQty(a.low_stock_threshold)}</p>
+                    <p className="text-sm font-semibold text-accent">{formatQty(a.quantite)} {a.unite}</p>
+                    <p className="text-xs text-[var(--color-text-faint)]">seuil : {formatQty(a.seuil_alerte)}</p>
                   </div>
                 </div>
               ))}

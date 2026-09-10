@@ -10,6 +10,27 @@ export const fetchInventories = async () => {
   return data;
 };
 
+/**
+ * Les inventaires clos, du plus ancien au plus récent.
+ *
+ * `total_value` et `signed_at` étaient DÉJÀ chargés par `fetchInventories()` et
+ * n'étaient affichés pour aucune archive. L'onglet Historique › Inventaires ne
+ * fait donc que montrer une donnée qui dormait.
+ *
+ * Ordre croissant, contrairement au reste : une variation se lit dans le sens
+ * du temps, et c'est aussi l'ordre des barres du graphique.
+ */
+export const fetchInventoriesValidees = async () => {
+  const { data, error } = await supabase
+    .from('inventories')
+    .select(`id, label, date, status, total_value, signed_at, responsible_name,
+             users:created_by ( full_name )`)
+    .in('status', ['valide', 'archive'])
+    .order('date', { ascending: true });
+  if (error) throw error;
+  return data;
+};
+
 export const fetchInventory = async (id) => {
   const { data, error } = await supabase
     .from('inventories')

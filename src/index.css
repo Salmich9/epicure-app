@@ -89,10 +89,46 @@ h1, h2, h3, .font-display {
    IMPRESSION
    ============================================================ */
 @media print {
+  /* Le bandeau mobile d'AppLayout porte `no-print` depuis que les bons ont
+     été refondus : la largeur A4 tombe sous le point de rupture `lg`, donc
+     c'est bien lui — hamburger et titre « Epicure » — qui coiffait chaque
+     bon imprimé. */
   .no-print { display: none !important; }
   body { background: white; }
   #bon-print { position: static; overflow: visible; }
+
+  /* SANS `print-color-adjust`, Chrome et Safari impriment tous les fonds en
+     blanc « pour économiser l'encre ». Le bon d'écart sortait donc SANS ses
+     écarts surlignés — c'est-à-dire sans l'information qu'il existe pour
+     transmettre. `-webkit-` d'abord, Safari ne connaît que celui-là. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page { size: A4 portrait; margin: 14mm 12mm; }
+
+  /* Une famille d'articles coupée en deux entre la page 1 et la page 2 oblige
+     à retourner la feuille pour finir de lire trois lignes. */
+  .print-groupe,
+  tr { break-inside: avoid; page-break-inside: avoid; }
+
+  /* L'en-tête de tableau se répète en haut de chaque page — sinon les colonnes
+     de la page 2 n'ont plus de nom. */
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+
+  /* Les bons tiennent dans une seule table depuis la refonte : rien ne doit
+     défiler horizontalement, tout doit rentrer dans la largeur utile. */
+  #bon-print .overflow-x-auto { overflow: visible !important; }
+  #bon-print table { width: 100%; font-size: 11pt; }
 }
+
+/* Une barre d'onglets qui défile sans afficher sa barre de défilement.
+   Quatre onglets ne tiennent pas sur 375 px ; les passer à la ligne déplacerait
+   le contenu vers le bas à chaque changement d'onglet. */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
 /* Focus visible accessible */
 :focus-visible {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Image, TrendingDown, Search, X, ChevronRight, Plus, Pencil, AlertTriangle } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Image, TrendingDown, Search, X, ChevronRight, Plus, Pencil, AlertTriangle, ShoppingCart } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import usePermission from '../hooks/usePermission';
@@ -11,6 +12,7 @@ import { fetchArticles, deactivateArticle } from '../data/articles';
 import { fetchSuppliers } from '../data/purchases';
 import PurchaseModal from '../components/PurchaseModal';
 import ArticleFormModal from '../components/ArticleFormModal';
+import BonCommande from '../components/BonCommande';
 import { PageLoader } from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
@@ -232,6 +234,22 @@ const Depot = () => {
   const [ficheArticle, setFicheArticle] = useState(null);
   const [ficheOuverte, setFicheOuverte] = useState(false);
   const [aArchiver, setAArchiver] = useState(null);
+  const [commandeOuverte, setCommandeOuverte] = useState(false);
+
+  // Le Dashboard n'est qu'une porte : sa carte « Articles en alerte » renvoie
+  // ici avec ce drapeau. Une implémentation, deux entrées — et `state` plutôt
+  // qu'un paramètre d'URL, pour que rien ne reste dans la barre d'adresse ni
+  // ne rouvre l'écran à un rafraîchissement.
+  const location = useLocation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (location.state?.commande) {
+      setCommandeOuverte(true);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location, navigate]);
+
+  const nbAlertes = useMemo(() => lignes.filter((l) => l.en_alerte).length, [lignes]);
 
   // Une seule fonction de chargement, appelée au montage ET après chaque
   // écriture. L'ancienne version avait un `useEffect([])` sans rechargement :
@@ -310,6 +328,10 @@ const Depot = () => {
 
   if (loading) return <PageLoader />;
 
+  if (commandeOuverte) {
+    return <BonCommande onClose={() => { setCommandeOuverte(false); load(); }} />;
+  }
+
   return (
     <div className="p-4 lg:p-6 max-w-5xl mx-auto">
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
@@ -318,11 +340,18 @@ const Depot = () => {
           <p className="text-sm text-[var(--color-text-muted)] mt-1">
             {lignes.length} articles · stock en temps réel
           </p>
-          {canBuy && (
-            <Button className="gap-2 mt-3" onClick={() => setAchatOuvert(true)}>
-              <Plus size={16} /> Nouvel achat
-            </Button>
-          )}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {canBuy && (
+              <Button className="gap-2" onClick={() => setAchatOuvert(true)}>
+                <Plus size={16} /> Nouvel achat
+              </Button>
+            )}
+            {canBuy && nbAlertes > 0 && (
+              <Button variant="outline" className="gap-2" onClick={() => setCommandeOuverte(true)}>
+                <ShoppingCart size={16} /> Commander ({nbAlertes})
+              </Button>
+            )}
+          </div>
         </div>
         <Entete evo={evo} couverture={couverture} />
       </div>

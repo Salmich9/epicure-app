@@ -19,18 +19,26 @@ export const fetchUpcomingEvents = async (limit = 5) => {
   return data;
 };
 
+/**
+ * Les articles en alerte, et ce qu'il faudrait en commander.
+ *
+ * LISAIT `current_stock` ET REFAISAIT LE TEST EN JAVASCRIPT. La formule
+ * `quantity <= low_stock_threshold` existait alors quatre fois : dans `v_depot`,
+ * dans `v_depot_decomposition`, dans `v_depot_evolution`, et ici — si bien que
+ * le KPI du dashboard et la liste juste en dessous ne partageaient pas une
+ * ligne de code. La migration 044 a ajouté `a_commander` à `v_depot` ; c'est
+ * désormais la seule définition, et le bon de commande la lit aussi.
+ */
 export const fetchAlertArticles = async () => {
   const { data, error } = await supabase
-    .from('current_stock')
-    .select(`
-      article_id, name, quantity, low_stock_threshold, last_purchase_price,
-      categories:category_id ( name ),
-      units:unit_id ( name, abbreviation )
-    `)
-    .eq('active', true)
-    .not('low_stock_threshold', 'is', null);
+    .from('v_depot')
+    .select('article_id, article, categorie, categorie_id, categorie_ordre, unite, '
+          + 'quantite, seuil_alerte, a_commander, dernier_prix, cout_moyen')
+    .eq('en_alerte', true)
+    .order('categorie_ordre')
+    .order('article');
   if (error) throw error;
-  return data.filter((a) => Number(a.quantity) <= Number(a.low_stock_threshold));
+  return data;
 };
 
 export const fetchRecentActivity = async (limit = 8) => {

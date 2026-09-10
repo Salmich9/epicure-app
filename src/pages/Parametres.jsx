@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import usePermission from '../hooks/usePermission';
 import { fetchCategories, createCategory, updateCategory, reorderCategories } from '../data/categories';
 import { fetchUnits, createUnit, updateUnit } from '../data/units';
+import { fetchMotifs, createMotif, updateMotif } from '../data/motifs';
 import { fetchUsers, fetchRoles, createUser, updateUser, toggleUserActive } from '../data/users';
 import { fetchAllPermissions, updatePermission } from '../data/permissions';
 import { fetchSettings, updateSetting } from '../data/settings';
@@ -161,6 +162,110 @@ const UnitesTab = () => {
         <div className="flex flex-col gap-4">
           <Input label="Nom *" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Ex : Bouteille" autoFocus />
           <Input label="Abréviation *" value={form.abbreviation} onChange={(e) => setForm((f) => ({ ...f, abbreviation: e.target.value }))} placeholder="Ex : btl" />
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setModal(false)}>Annuler</Button>
+            <Button className="flex-1" onClick={handleSave} loading={saving}>Enregistrer</Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+};
+
+// ── Onglet Motifs d'écart ─────────────────────────────────────
+//
+// Même forme que les unités et les catégories : un référentiel court, modifié
+// rarement, jamais supprimé — un motif posé sur un écart de juin doit encore
+// pouvoir être lu en décembre, et la contrainte `on delete restrict` de la
+// migration 042 le garantit en base.
+//
+// `perte_reelle` EST LA SEULE COLONNE QUI DEMANDE UNE EXPLICATION À L'ÉCRAN.
+// « Consommée » n'est pas une casse : c'est la destination normale d'un
+// consommable. Les compter ensemble ferait grossir un chiffre de « pertes » à
+// chaque événement réussi.
+const MotifsTab = () => {
+  const { user } = useAuth();
+  const [motifs,  setMotifs]  = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal,   setModal]   = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form,    setForm]    = useState({ name: '', perte_reelle: true });
+  const [saving,  setSaving]  = useState(false);
+
+  const load = () => fetchMotifs().then(setMotifs).finally(() => setLoading(false));
+  useEffect(() => { load(); }, []);
+
+  const openAdd  = () => { setEditing(null); setForm({ name: '', perte_reelle: true }); setModal(true); };
+  const openEdit = (m) => { setEditing(m); setForm({ name: m.name, perte_reelle: m.perte_reelle }); setModal(true); };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) { toast.error('Le nom est requis'); return; }
+    setSaving(true);
+    try {
+      if (editing) {
+        await updateMotif(editing.id, form, user.id);
+        toast.success('Motif mis à jour');
+      } else {
+        await createMotif(form, user.id);
+        toast.success('Motif ajouté');
+      }
+      setModal(false);
+      await load();
+    } catch (e) {
+      // 23505 = l'index d'unicité de la 042. Le message brut de Postgres cite
+      // le nom de l'index, ce qui ne dit rien à personne ici.
+      toast.error(e.code === '23505' ? 'Ce motif existe déjà.' : e.message);
+    }
+    finally { setSaving(false); }
+  };
+
+  const toggleActive = async (m) => {
+    await updateMotif(m.id, { active: !m.active }, user.id);
+    await load();
+  };
+
+  if (loading) return <PageLoader />;
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-1">
+        <h3 className="font-semibold text-[var(--color-text)]">Motifs d'écart ({motifs.length})</h3>
+        <Button size="sm" onClick={openAdd}><Plus size={14} /> Ajouter</Button>
+      </div>
+      <p className="text-xs text-[var(--color-text-faint)] mb-4">
+        Proposés à la clôture d'un événement, pour chaque article qui n'est pas revenu.
+      </p>
+      <div className="bg-white rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-hidden">
+        {motifs.map((m) => (
+          <div key={m.id} className={`flex items-center gap-3 px-4 py-3 border-b border-[var(--color-border)] last:border-0 ${!m.active ? 'opacity-50' : ''}`}>
+            <span className="flex-1 text-sm font-medium text-[var(--color-text)]">{m.name}</span>
+            {!m.perte_reelle && (
+              <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded">sortie normale</span>
+            )}
+            <button onClick={() => openEdit(m)} className="p-1.5 rounded hover:bg-warm-100 text-[var(--color-text-muted)] min-h-[44px] min-w-[44px] flex items-center justify-center"><Pencil size={14} /></button>
+            <button onClick={() => toggleActive(m)} className="min-h-[44px] min-w-[44px] flex items-center justify-center">
+              {m.active ? <ToggleRight size={20} className="text-primary" /> : <ToggleLeft size={20} className="text-[var(--color-text-faint)]" />}
+            </button>
+          </div>
+        ))}
+      </div>
+      <Modal open={modal} onClose={() => setModal(false)} title={editing ? 'Modifier le motif' : 'Nouveau motif'} size="sm">
+        <div className="flex flex-col gap-4">
+          <Input label="Nom *" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Ex : Casse" autoFocus />
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!form.perte_reelle}
+              onChange={(e) => setForm((f) => ({ ...f, perte_reelle: !e.target.checked }))}
+              className="mt-1 w-4 h-4 accent-primary flex-shrink-0"
+            />
+            <span className="text-sm">
+              <span className="font-medium text-[var(--color-text)]">Sortie normale, pas une perte</span>
+              <span className="block text-xs text-[var(--color-text-muted)] mt-0.5">
+                À cocher pour « Consommée » : l'article n'est pas revenu parce que c'était sa destination.
+              </span>
+            </span>
+          </label>
           <div className="flex gap-3">
             <Button variant="outline" className="flex-1" onClick={() => setModal(false)}>Annuler</Button>
             <Button className="flex-1" onClick={handleSave} loading={saving}>Enregistrer</Button>
@@ -508,6 +613,7 @@ const FournisseursTab = () => {
 const TABS = [
   { id: 'categories',  label: 'Catégories',  perm: 'categories.manage' },
   { id: 'unites',      label: 'Unités',       perm: 'units.manage' },
+  { id: 'motifs',      label: "Motifs d'écart", perm: 'categories.manage' },
   { id: 'fournisseurs',label: 'Fournisseurs', perm: 'purchases.read' },
   { id: 'utilisateurs',label: 'Utilisateurs', perm: 'settings.read' },
   { id: 'permissions', label: 'Permissions',  perm: 'permissions.manage' },
@@ -556,6 +662,7 @@ const Parametres = () => {
       {/* Contenu */}
       {tab === 'categories'   && <CategoriesTab />}
       {tab === 'unites'       && <UnitesTab />}
+      {tab === 'motifs'       && <MotifsTab />}
       {tab === 'fournisseurs' && <FournisseursTab />}
       {tab === 'utilisateurs' && <UtilisateursTab />}
       {tab === 'permissions'  && <PermissionsTab />}
