@@ -346,6 +346,7 @@ const InventaireDetail = ({ inventoryId, onBack }) => {
                           <div className="relative flex justify-end">
                             <input
                               type="number"
+                              inputMode="decimal"
                               min="0"
                               step="0.001"
                               value={c.qty}
