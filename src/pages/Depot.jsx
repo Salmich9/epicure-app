@@ -89,7 +89,7 @@ const Entete = ({ evo, couverture }) => {
     && Number(evo.mouvements_depuis ?? 0) === 0;
 
   return (
-    <div className="bg-primary text-white rounded-[var(--radius-lg)] px-6 py-5 shadow-md max-w-md">
+    <div className="bg-primary text-white rounded-[var(--radius-lg)] px-6 py-5 shadow-md w-full sm:max-w-md">
       <p className="text-white/60 text-xs uppercase tracking-wider font-medium">Valeur du dépôt</p>
       <p className="font-display text-4xl font-bold mt-1">{formatMAD(evo.valeur_totale)}</p>
 
@@ -369,7 +369,7 @@ const Depot = () => {
 
   return (
     <div className="p-4 lg:p-6 max-w-5xl mx-auto">
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-6 gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-[var(--color-text)]">Dépôt</h1>
           <p className="text-sm text-[var(--color-text-muted)] mt-1">
