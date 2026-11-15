@@ -19,9 +19,21 @@ const Sidebar = ({ onClose }) => {
   return (
     <aside className="flex flex-col h-full bg-primary w-64 text-white">
       {/* Logo */}
-      <div className="px-6 py-5 border-b border-white/10">
-        <h1 className="font-display text-2xl font-bold tracking-wide">Epicure</h1>
-        <p className="text-white/50 text-xs mt-0.5">Gestion du dépôt</p>
+      <div className="px-5 py-5 border-b border-white/10 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+             style={{background:'linear-gradient(145deg,rgba(255,255,255,0.18) 0%,rgba(255,255,255,0.06) 100%)'}}>
+          <svg width="22" height="22" viewBox="0 0 68 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M6 32L34 14L62 32V58H6V32Z" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.35)" strokeWidth="2.5" strokeLinejoin="round"/>
+            <path d="M6 32L34 14L62 32" fill="rgba(255,255,255,0.14)" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5" strokeLinejoin="round"/>
+            <rect x="24" y="38" width="20" height="20" rx="2" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.45)" strokeWidth="2"/>
+            <path d="M34 54V42M34 42L29 47M34 42L39 47" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+            <circle cx="34" cy="14" r="2.5" fill="rgba(255,255,255,0.7)"/>
+          </svg>
+        </div>
+        <div>
+          <h1 className="font-display text-xl font-bold tracking-wide leading-none">Epicure</h1>
+          <p className="text-white/50 text-xs mt-0.5">Gestion du dépôt</p>
+        </div>
       </div>
 
       {/* Navigation */}
