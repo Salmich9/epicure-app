@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Image, TrendingDown, Search, X, ChevronRight, Plus, Pencil, AlertTriangle, ShoppingCart } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -20,6 +20,24 @@ import ConfirmDialog from '../components/ui/ConfirmDialog';
 import CollapsibleSection from '../components/ui/CollapsibleSection';
 import useOpenSections from '../hooks/useOpenSections';
 import { formatMAD, formatQty, formatDateTime } from '../lib/utils';
+
+// ── Lightbox : tap sur une vignette → plein écran, tap n'importe où = ferme ──
+const ImageLightbox = ({ src, alt, onClose }) => {
+  if (!src) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+      onClick={onClose}
+    >
+      <img
+        src={src}
+        alt={alt}
+        className="max-w-[90vw] max-h-[90vh] rounded-lg object-contain shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+};
 
 const TYPE_LABEL = {
   inventaire_initial: 'Inventaire initial',
@@ -235,6 +253,7 @@ const Depot = () => {
   const [ficheOuverte, setFicheOuverte] = useState(false);
   const [aArchiver, setAArchiver] = useState(null);
   const [commandeOuverte, setCommandeOuverte] = useState(false);
+  const [zoomedImg, setZoomedImg] = useState(null);
 
   // Le Dashboard n'est qu'une porte : sa carte « Articles en alerte » renvoie
   // ici avec ce drapeau. Une implémentation, deux entrées — et `state` plutôt
@@ -427,7 +446,12 @@ const Depot = () => {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             {l.photo_url ? (
-                              <img src={l.photo_url} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                              <img
+                                src={l.photo_url}
+                                alt=""
+                                className="w-8 h-8 rounded object-cover flex-shrink-0 cursor-zoom-in"
+                                onClick={(e) => { e.stopPropagation(); setZoomedImg({ src: l.photo_url, alt: l.article }); }}
+                              />
                             ) : (
                               <div className="w-8 h-8 rounded bg-warm-100 flex items-center justify-center flex-shrink-0">
                                 <Image size={12} className="text-[var(--color-text-faint)]" />
@@ -490,6 +514,12 @@ const Depot = () => {
         onClose={() => { setFicheOuverte(false); setFicheArticle(null); }}
         onCreated={() => { setSelected(null); load(); }}
         initial={ficheArticle}
+      />
+
+      <ImageLightbox
+        src={zoomedImg?.src}
+        alt={zoomedImg?.alt}
+        onClose={() => setZoomedImg(null)}
       />
 
       <ConfirmDialog
