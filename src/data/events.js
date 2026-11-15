@@ -82,7 +82,7 @@ export const fetchEventWithdrawals = async (eventId) => {
     .select(`
       id, quantity, note, created_at,
       articles:article_id (
-        id, name, last_purchase_price,
+        id, name, type, last_purchase_price, average_cost,
         categories:category_id ( id, name, sort_order ),
         units:unit_id ( id, name, abbreviation )
       ),
@@ -126,7 +126,7 @@ export const fetchEventReturns = async (eventId) => {
     .select(`
       id, quantity, type, note, created_at,
       articles:article_id (
-        id, name, last_purchase_price,
+        id, name, type, last_purchase_price, average_cost,
         categories:category_id ( id, name, sort_order ),
         units:unit_id ( id, name, abbreviation )
       ),
@@ -141,7 +141,11 @@ export const fetchEventReturns = async (eventId) => {
 };
 
 // Valide les retours via RPC (atomique)
-// returns = [{ article_id, returned_qty, ecart }]
+// returns = [{ article_id, returned_qty, ecart, motif_id }]
+//
+// `motif_id` est facultatif et ne change pas la signature de la RPC :
+// `p_returns` est un jsonb sans schéma, une clé de plus est absorbée. Un
+// appelant qui ne l'envoie pas se comporte exactement comme avant.
 export const validateEventReturns = async (eventId, returns, actorId) => {
   const { data, error } = await supabase.rpc('validate_event_returns', {
     p_event_id: eventId,
@@ -173,6 +177,35 @@ export const deleteWithdrawal = async (movementId, actorId) => {
     p_movement_id: movementId,
     p_user_id: actorId,
   });
+  if (error) throw error;
+  return data;
+};
+
+
+// ── Lectures d'historique ─────────────────────────────────────
+//
+// `v_evenements` existe depuis la migration 026 et n'était lue NULLE PART dans
+// l'app : une ligne par événement, avec l'écart déjà valorisé. L'onglet
+// Historique › Écarts n'a donc rien à recalculer — et c'est ce qui garantit
+// qu'il affiche le même montant que la page de l'événement.
+
+export const fetchEcartsParEvenement = async () => {
+  const { data, error } = await supabase
+    .from('v_evenements')
+    .select('*')
+    .order('date_evenement', { ascending: false });
+  if (error) throw error;
+  return data;
+};
+
+// Le détail d'un événement, motifs compris (colonnes ajoutées par la 044).
+export const fetchEcartsArticles = async (eventId) => {
+  const { data, error } = await supabase
+    .from('v_evenements_articles')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('categorie')
+    .order('article');
   if (error) throw error;
   return data;
 };
