@@ -483,11 +483,11 @@ const Depot = () => {
                               <img
                                 src={l.photo_url}
                                 alt=""
-                                className="w-8 h-8 rounded object-cover flex-shrink-0 cursor-zoom-in"
+                                className="w-10 h-10 rounded object-cover flex-shrink-0 cursor-zoom-in min-h-[44px] min-w-[44px]"
                                 onClick={(e) => { e.stopPropagation(); setZoomedImg({ src: l.photo_url, alt: l.article }); }}
                               />
                             ) : (
-                              <div className="w-8 h-8 rounded bg-warm-100 flex items-center justify-center flex-shrink-0">
+                              <div className="w-10 h-10 rounded bg-warm-100 flex items-center justify-center flex-shrink-0 min-h-[44px] min-w-[44px]">
                                 <Image size={12} className="text-[var(--color-text-faint)]" />
                               </div>
                             )}
