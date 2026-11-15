@@ -1,10 +1,28 @@
 import { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import Sidebar from './Sidebar';
 
+// Mapping chemin → nom affiché dans la topbar mobile.
+// N'utilise que le premier segment pour être robuste aux sous-routes.
+const PATH_LABEL = {
+  '/':            'Accueil',
+  '/dashboard':   'Accueil',
+  '/depot':       'Dépôt',
+  '/evenements':  'Événements',
+  '/historique':  'Historique',
+  '/parametres':  'Paramètres',
+  '/utilisateurs':'Équipe',
+};
+
 const AppLayout = () => {
+  const location    = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Résolution du label : on prend le premier segment du pathname pour
+  // rester invariant face aux éventuelles sous-routes futures.
+  const segment = '/' + location.pathname.split('/').filter(Boolean)[0] ?? '';
+  const pageLabel = PATH_LABEL[segment] ?? PATH_LABEL[location.pathname] ?? 'Epicure';
 
   // Le tiroir n'avait ni Echap ni blocage du defilement, alors que `Modal` a
   // les deux depuis toujours. Sur iOS, le fond defilait sous le tiroir ouvert.
@@ -63,7 +81,7 @@ const AppLayout = () => {
           >
             <Menu size={22} />
           </button>
-          <h1 className="font-display text-xl font-semibold text-primary">Epicure</h1>
+          <h1 className="font-display text-xl font-semibold text-[var(--color-text)]">{pageLabel}</h1>
           <div className="w-11" />
         </header>
 
