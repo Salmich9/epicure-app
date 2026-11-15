@@ -135,7 +135,7 @@ const Entete = ({ evo, couverture }) => {
 };
 
 // ── Panneau article : ses mouvements, et sa fiche ─────────────
-const ArticlePanel = ({ ligne, article, onClose, onEdit, onArchive, canUpdate, canDelete }) => {
+const ArticlePanel = ({ ligne, article, onClose, onEdit, onArchive, onViewHistory, canUpdate, canDelete }) => {
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -193,6 +193,17 @@ const ArticlePanel = ({ ligne, article, onClose, onEdit, onArchive, canUpdate, c
             )}
           </div>
         )}
+
+        {/* Lien vers l'historique complet filtré sur cet article */}
+        <div className="px-5 py-3 border-b border-[var(--color-border)]">
+          <button
+            type="button"
+            onClick={() => onViewHistory(ligne.article_id, article?.nom ?? '')}
+            className="w-full h-10 flex items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)] text-sm font-medium text-primary hover:bg-primary/5"
+          >
+            <TrendingDown size={14} /> Voir dans l'historique complet
+          </button>
+        </div>
 
         <div className="flex-1 overflow-y-auto">
           <p className="px-5 py-3 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide border-b border-[var(--color-border)]">
@@ -518,6 +529,7 @@ const Depot = () => {
         onClose={() => setSelected(null)}
         onEdit={(a) => { setFicheArticle(a); setFicheOuverte(true); }}
         onArchive={setAArchiver}
+        onViewHistory={(articleId, articleName) => { setSelected(null); navigate('/historique', { state: { articleId, articleName } }); }}
         canUpdate={canUpdate}
         canDelete={canDelete}
       />

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, ShoppingCart, CalendarDays, Warehouse, ChevronDown } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Search, ShoppingCart, CalendarDays, Warehouse, ChevronDown, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fetchAuditLog } from '../data/auditLog';
 import { fetchPurchases } from '../data/purchases';
@@ -373,11 +374,11 @@ const AchatsTab = () => {
 // onglets de plus, le parent devenait un fichier où l'on cherche. Chaque
 // onglet est désormais autonome, sur le modèle de `Parametres.jsx` : il charge
 // ce dont il a besoin, quand on l'ouvre, et pas avant.
-const JournalTab = () => {
+const JournalTab = ({ initialSearch = '' }) => {
   const [logs,     setLogs]     = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [entity,   setEntity]   = useState('');
-  const [search,   setSearch]   = useState('');
+  const [search,   setSearch]   = useState(initialSearch);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo,   setDateTo]   = useState('');
 
@@ -410,6 +411,21 @@ const JournalTab = () => {
 
   return (
     <div>
+      {/* Bandeau filtre article pré-sélectionné (depuis ArticlePanel) */}
+      {initialSearch && search === initialSearch && (
+        <div className="flex items-center gap-2 bg-[var(--color-bg-secondary,#F0F7F3)] border border-[var(--color-border-primary,#A8C5B8)] rounded-[var(--radius-md)] px-4 py-2.5 mb-3">
+          <Warehouse size={15} className="text-primary flex-shrink-0" />
+          <span className="flex-1 text-sm font-medium text-primary truncate">{initialSearch}</span>
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            className="ml-1 min-h-[32px] min-w-[32px] flex items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20"
+            aria-label="Effacer le filtre article"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-[180px]">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-faint)]" />
@@ -502,9 +518,22 @@ const ONGLETS = [
 ];
 
 const Historique = () => {
-  // Les écarts d'abord : c'est la question qu'on se pose en ouvrant cette page,
-  // et le journal d'audit ne se consulte qu'en cas de doute.
-  const [tab, setTab] = useState('ecarts');
+  const location = useLocation();
+  const navigate  = useNavigate();
+
+  // Si on arrive depuis ArticlePanel, on saute directement sur l'onglet journal
+  // avec le nom de l'article pré-rempli comme filtre de recherche.
+  const articleName = location.state?.articleName ?? '';
+  const initTab = location.state?.articleName ? 'journal' : 'ecarts';
+
+  const [tab, setTab] = useState(initTab);
+
+  // Nettoyage de l'état de navigation (évite de relire le filtre au retour)
+  useEffect(() => {
+    if (location.state?.articleName) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location, navigate]);
 
   return (
     <div className="p-4 lg:p-6 max-w-5xl mx-auto">
@@ -533,7 +562,7 @@ const Historique = () => {
       {tab === 'ecarts'      && <EcartsTab />}
       {tab === 'inventaires' && <InventairesTab />}
       {tab === 'achats'      && <AchatsTab />}
-      {tab === 'journal'     && <JournalTab />}
+      {tab === 'journal'     && <JournalTab initialSearch={articleName} />}
     </div>
   );
 };
