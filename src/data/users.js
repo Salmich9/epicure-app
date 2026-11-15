@@ -4,7 +4,7 @@ import { logAudit } from './auditLog';
 export const fetchUsers = async () => {
   const { data, error } = await supabase
     .from('users')
-    .select(`*, roles:role_id ( id, name )`)
+    .select(`id, full_name, role_id, active, created_at, updated_at, roles:role_id ( id, name )`)
     .order('full_name');
   if (error) throw error;
   return data;
@@ -24,7 +24,7 @@ export const createUser = async ({ full_name, pin, role_id }, actorId) => {
   const { data, error } = await supabase
     .from('users')
     .insert({ full_name, pin_hash: 'temp', role_id, active: true })
-    .select()
+    .select('id, full_name, role_id, active')
     .single();
   if (error) throw error;
 
