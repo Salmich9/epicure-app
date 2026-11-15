@@ -1,4 +1,4 @@
--- Retour arrière de 048 (à n'utiliser qu'en cas de panne) : rouvre comme avant 048.
+-- Retour arrière de 048 et 049 (à n'utiliser qu'en cas de panne) : rouvre comme avant 048.
 do $$
 declare p record;
 begin
@@ -14,5 +14,5 @@ begin
   end loop;
 end $$;
 alter table public.dossiers_drive disable row level security;
-grant select (pin_hash) on public.users to anon, authenticated;
+grant select on public.users to anon, authenticated;
 -- Les fonctions gardent leur contrôle de session : avec l'appli à jour, il ne gêne pas.
