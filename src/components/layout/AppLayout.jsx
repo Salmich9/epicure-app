@@ -55,7 +55,7 @@ const AppLayout = () => {
           rattrape, pas au niveau du layout. */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* TopBar mobile */}
-        <header className="lg:hidden flex items-center justify-between px-4 h-14 bg-white border-b border-[var(--color-border)]">
+        <header className="no-print lg:hidden flex items-center justify-between px-4 h-14 bg-white border-b border-[var(--color-border)]">
           <button
             onClick={() => setSidebarOpen(true)}
             className="p-2 rounded-lg hover:bg-warm-100 text-[var(--color-text-muted)] min-h-[44px] min-w-[44px] flex items-center justify-center"

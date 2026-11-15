@@ -11,10 +11,12 @@ import {
   fetchEvents, fetchEvent, createEvent, updateEvent, updateEventStatus,
   addResponsible, removeResponsible,
   fetchEventWithdrawals, addWithdrawal, deleteWithdrawal,
-  fetchEventReturns, validateEventReturns,
+  fetchEventReturns, validateEventReturns, fetchEcartsArticles,
 } from '../data/events';
 import { fetchArticles } from '../data/articles';
 import { fetchCurrentStock } from '../data/stock';
+import { fetchMotifs, corrigerMotifEcart } from '../data/motifs';
+import { BonShell, BonEntete, BonSignatures, LigneFamille } from '../components/ui/Bon';
 import Modal from '../components/ui/Modal';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -29,183 +31,246 @@ const statusLabel   = { brouillon: 'Brouillon', en_cours: 'En cours', cloture: '
 
 // ─────────────────────────────────────────────────────────────
 // BON DE PRÉLÈVEMENT
+//
+// CE QUI A DISPARU : les colonnes « Prix unit. » et « Valeur », le bandeau de
+// valeur totale, et les 19 tables — une par famille, chacune avec sa bordure,
+// son en-tête et sa marge, pour deux lignes en moyenne.
+//
+// Ce bon sert à charger un camion. Celui qui le tient a besoin de savoir quoi
+// prendre et combien ; le prix de la coupette ne l'aide pas et déplace la
+// quantité vers la droite de la feuille.
+//
+// L'UTILISATEUR À L'ORIGINE DU PRÉLÈVEMENT était DÉJÀ chargé —
+// `fetchEventWithdrawals` joint `users:created_by(full_name)` — et jeté par
+// l'agrégation. Il suffit de ne plus le perdre.
 // ─────────────────────────────────────────────────────────────
+
+// « Karim », « Karim, Aziz », puis « Karim, Aziz +2 ». Au-delà de deux noms la
+// colonne recommence à s'étaler, ce que toute cette refonte cherche à éviter.
+const listerAuteurs = (noms) => {
+  const l = [...noms].filter(Boolean).sort();
+  if (l.length === 0) return null;
+  if (l.length <= 2) return l.join(', ');
+  return `${l[0]}, ${l[1]} +${l.length - 2}`;
+};
+
 const BonPrelevement = ({ event, responsibles, withdrawals, onClose }) => {
-  const aggregated = useMemo(() => {
-    const map = {};
+  const byCategory = useMemo(() => {
+    const parArticle = {};
     withdrawals.forEach((w) => {
       const id = w.articles?.id; if (!id) return;
-      if (!map[id]) map[id] = { article: w.articles, qty: 0 };
-      map[id].qty += Math.abs(w.quantity);
+      if (!parArticle[id]) parArticle[id] = { article: w.articles, qty: 0, auteurs: new Set() };
+      parArticle[id].qty += Math.abs(w.quantity);
+      if (w.users?.full_name) parArticle[id].auteurs.add(w.users.full_name);
     });
-    return Object.values(map).sort((a, b) => (a.article?.categories?.sort_order ?? 99) - (b.article?.categories?.sort_order ?? 99));
+
+    const parFamille = {};
+    Object.values(parArticle).forEach((a) => {
+      const cid = a.article?.categories?.id ?? 'x';
+      if (!parFamille[cid]) parFamille[cid] = { cat: a.article?.categories, items: [] };
+      parFamille[cid].items.push(a);
+    });
+
+    return Object.values(parFamille)
+      .sort((a, b) => (a.cat?.sort_order ?? 99) - (b.cat?.sort_order ?? 99))
+      .map((f) => ({ ...f, items: f.items.sort((a, b) => a.article.name.localeCompare(b.article.name, 'fr')) }));
   }, [withdrawals]);
 
-  const byCategory = useMemo(() => {
-    const map = {};
-    aggregated.forEach((a) => {
-      const cid = a.article?.categories?.id ?? 'x';
-      if (!map[cid]) map[cid] = { cat: a.article?.categories, items: [] };
-      map[cid].items.push(a);
-    });
-    return Object.values(map).sort((a, b) => (a.cat?.sort_order ?? 99) - (b.cat?.sort_order ?? 99));
-  }, [aggregated]);
-
-  const totalValue = aggregated.reduce((s, a) => s + a.qty * (a.article?.last_purchase_price ?? 0), 0);
+  const nbArticles = byCategory.reduce((s, f) => s + f.items.length, 0);
 
   return (
-    <div className="fixed inset-0 z-50 bg-white overflow-y-auto" id="bon-print">
-      <div className="no-print flex items-center justify-between px-6 py-3 border-b border-[var(--color-border)] bg-warm-50 sticky top-0">
-        <Button variant="outline" size="sm" onClick={onClose} className="gap-1"><ArrowLeft size={14} /> Retour</Button>
-        <span className="text-sm font-medium text-[var(--color-text-muted)]">Bon de prélèvement</span>
-        <Button size="sm" onClick={() => window.print()} className="gap-1"><Printer size={14} /> Imprimer</Button>
-      </div>
-      <div className="max-w-3xl mx-auto p-8">
-        <div className="flex items-start justify-between mb-6 pb-4 border-b-2 border-primary">
-          <div><h1 className="font-display text-3xl font-bold text-primary">Epicure</h1><p className="text-sm text-[var(--color-text-muted)]">Bon de prélèvement</p></div>
-          <div className="text-right"><p className="text-xs text-[var(--color-text-muted)]">Imprimé le</p><p className="text-sm font-medium">{new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div>
-        </div>
-        <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-warm-50 rounded-[var(--radius-md)]">
-          <div><p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide">Événement</p><p className="font-semibold mt-0.5">{event.name}</p></div>
-          <div><p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide">Date</p><p className="font-semibold mt-0.5">{formatDate(event.date)}</p></div>
-          <div><p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide">Lieu</p><p className="font-semibold mt-0.5">{event.venue || '—'}</p></div>
-        </div>
-        {responsibles.length > 0 && (
-          <div className="mb-6">
-            <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide mb-2">Responsables</p>
-            <div className="flex flex-wrap gap-2">
-              {responsibles.map((r) => (
-                <span key={r.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 text-primary rounded-full text-sm border border-primary-100">
-                  <span className="font-semibold">{r.name}</span><span className="text-primary/60">· {r.role_label}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-        <div className="mb-6">
-          <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide mb-3">Articles prélevés</p>
-          {byCategory.map(({ cat, items }) => (
-            <div key={cat?.id ?? 'x'} className="mb-4">
-              <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-1">{cat?.name ?? '—'}</p>
-              <table className="w-full text-sm border border-[var(--color-border)] rounded overflow-hidden">
-                <thead><tr className="bg-warm-50 text-[var(--color-text-muted)] text-xs"><th className="px-3 py-2 text-left">Article</th><th className="px-3 py-2 text-right">Quantité</th><th className="px-3 py-2 text-right">Prix unit.</th><th className="px-3 py-2 text-right">Valeur</th></tr></thead>
-                <tbody>{items.map(({ article, qty }) => (
-                  <tr key={article.id} className="border-t border-[var(--color-border)]">
-                    <td className="px-3 py-2 font-medium">{article.name}</td>
-                    <td className="px-3 py-2 text-right">{formatQty(qty)} {article.units?.abbreviation}</td>
-                    <td className="px-3 py-2 text-right text-[var(--color-text-muted)]">{formatMAD(article.last_purchase_price)}</td>
-                    <td className="px-3 py-2 text-right font-medium">{formatMAD(qty * (article.last_purchase_price ?? 0))}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
-          ))}
-          <div className="flex justify-end mt-3">
-            <div className="bg-primary text-white px-6 py-3 rounded-[var(--radius-md)]">
-              <span className="text-sm opacity-75">Valeur totale prélevée</span>
-              <span className="font-display text-xl font-bold ml-4">{formatMAD(totalValue)}</span>
-            </div>
-          </div>
-        </div>
-        <div className="mt-8 pt-6 border-t border-[var(--color-border)]">
-          <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide mb-4">Signatures</p>
-          <div className="grid grid-cols-2 gap-8">
-            {responsibles.slice(0, 4).map((r) => (
-              <div key={r.id}><p className="text-sm font-medium">{r.name}</p><p className="text-xs text-[var(--color-text-muted)] mb-6">{r.role_label}</p><div className="border-b border-[var(--color-border-dark)] mt-8" /><p className="text-xs text-[var(--color-text-faint)] mt-1">Signature</p></div>
+    <BonShell titre="Bon de prélèvement" onClose={onClose}>
+      <BonEntete
+        sousTitre="Bon de prélèvement"
+        lignes={[
+          { label: 'Événement', valeur: event.name },
+          { label: 'Date',      valeur: formatDate(event.date) },
+          { label: 'Lieu',      valeur: event.venue },
+        ]}
+      />
+
+      {responsibles.length > 0 && (
+        <div className="mb-6 print-groupe">
+          <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide mb-2">Responsables</p>
+          <div className="flex flex-wrap gap-2">
+            {responsibles.map((r) => (
+              <span key={r.id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-50 text-primary rounded-full text-sm border border-primary-100">
+                <span className="font-semibold">{r.name}</span><span className="text-primary/60">· {r.role_label}</span>
+              </span>
             ))}
-            <div><p className="text-sm font-medium">Responsable dépôt</p><p className="text-xs text-[var(--color-text-muted)] mb-6">Epicure</p><div className="border-b border-[var(--color-border-dark)] mt-8" /><p className="text-xs text-[var(--color-text-faint)] mt-1">Signature</p></div>
           </div>
         </div>
+      )}
+
+      <div className="mb-6">
+        <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide mb-2">
+          Articles prélevés · {nbArticles} référence{nbArticles > 1 ? 's' : ''}
+        </p>
+
+        {nbArticles === 0 ? (
+          <p className="text-sm text-[var(--color-text-faint)] py-6 text-center">Aucun article prélevé.</p>
+        ) : (
+          <table className="w-full text-sm border border-[var(--color-border)] rounded overflow-hidden">
+            <thead>
+              <tr className="bg-warm-50 text-[var(--color-text-muted)] text-xs uppercase tracking-wide">
+                <th className="px-3 py-2 text-left">Article</th>
+                <th className="px-3 py-2 text-right w-32">Quantité</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byCategory.map(({ cat, items }) => (
+                <Fragment key={cat?.id ?? 'x'}>
+                  <LigneFamille titre={cat?.name ?? 'Sans famille'} colonnes={2} />
+                  {items.map(({ article, qty, auteurs }) => {
+                    const par = listerAuteurs(auteurs);
+                    return (
+                      <tr key={article.id} className="border-t border-[var(--color-border)]">
+                        <td className="px-3 py-1.5">
+                          <span className="font-medium">{article.name}</span>
+                          {par && <span className="text-xs text-[var(--color-text-faint)]"> ({par})</span>}
+                        </td>
+                        <td className="px-3 py-1.5 text-right font-semibold whitespace-nowrap">
+                          {formatQty(qty)} <span className="font-normal text-[var(--color-text-muted)]">{article.units?.abbreviation}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
-    </div>
+
+      <BonSignatures responsibles={responsibles} />
+    </BonShell>
   );
 };
 
 // ─────────────────────────────────────────────────────────────
-// BON DE RETOUR
+// BON D'ÉCART
+//
+// S'appelait « bon de retour » et listait tout ce qui était sorti, conforme
+// compris. Un document qui aligne 20 lignes en règle pour en signaler 3 fait
+// chercher les 3 : ne sont imprimées que les lignes en écart, suivies d'une
+// ligne de clôture qui compte les autres. Rien n'est caché, tout est dit.
+//
+// « Prélevé » et « Retourné » fusionnent en « 24 → 21 » : l'information est
+// entière, la table perd une colonne.
+//
+// LE TOTAL EST SCINDÉ. Un consommable qui ne revient pas n'est pas une perte,
+// c'est sa destination — la distinction que portent `articles.type` depuis la
+// 026 et `motifs_ecart.perte_reelle` depuis la 042. Les additionner produirait
+// un « écart » qui grossit à chaque événement réussi.
 // ─────────────────────────────────────────────────────────────
-const BonRetour = ({ event, responsibles, aggregated, onClose }) => {
-  const byCategory = useMemo(() => {
-    const map = {};
-    aggregated.forEach((a) => {
+const BonEcart = ({ event, responsibles, aggregated, onClose }) => {
+  const { ecarts, conformes, totalEcart, totalConsomme } = useMemo(() => {
+    const enEcart = aggregated.filter((a) => a.ecart > 0);
+    const parFamille = {};
+    enEcart.forEach((a) => {
       const cid = a.article?.categories?.id ?? 'x';
-      if (!map[cid]) map[cid] = { cat: a.article?.categories, items: [] };
-      map[cid].items.push(a);
+      if (!parFamille[cid]) parFamille[cid] = { cat: a.article?.categories, items: [] };
+      parFamille[cid].items.push(a);
     });
-    return Object.values(map).sort((a, b) => (a.cat?.sort_order ?? 99) - (b.cat?.sort_order ?? 99));
+
+    // Au coût moyen, comme partout depuis la 027 — et donc identique au montant
+    // de `v_evenements.valeur_ecart` que lit l'onglet Historique.
+    const valeur = (a) => a.ecart * Number(a.article?.average_cost ?? 0);
+
+    return {
+      ecarts: Object.values(parFamille)
+        .sort((a, b) => (a.cat?.sort_order ?? 99) - (b.cat?.sort_order ?? 99))
+        .map((f) => ({ ...f, items: f.items.sort((x, y) => x.article.name.localeCompare(y.article.name, 'fr')) })),
+      conformes: aggregated.length - enEcart.length,
+      totalEcart:    enEcart.filter((a) => a.article?.type === 'retournable').reduce((s, a) => s + valeur(a), 0),
+      totalConsomme: enEcart.filter((a) => a.article?.type !== 'retournable').reduce((s, a) => s + valeur(a), 0),
+    };
   }, [aggregated]);
 
-  const totalEcartValue = aggregated.reduce((s, a) => s + a.ecart * (a.article?.last_purchase_price ?? 0), 0);
-  const hasEcarts = aggregated.some((a) => a.ecart > 0);
+  const hasEcarts = ecarts.length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 bg-white overflow-y-auto" id="bon-print">
-      <div className="no-print flex items-center justify-between px-6 py-3 border-b border-[var(--color-border)] bg-warm-50 sticky top-0">
-        <Button variant="outline" size="sm" onClick={onClose} className="gap-1"><ArrowLeft size={14} /> Retour</Button>
-        <span className="text-sm font-medium text-[var(--color-text-muted)]">Bon de retour</span>
-        <Button size="sm" onClick={() => window.print()} className="gap-1"><Printer size={14} /> Imprimer</Button>
-      </div>
-      <div className="max-w-3xl mx-auto p-8">
-        <div className="flex items-start justify-between mb-6 pb-4 border-b-2 border-primary">
-          <div><h1 className="font-display text-3xl font-bold text-primary">Epicure</h1><p className="text-sm text-[var(--color-text-muted)]">Bon de retour — Bilan des écarts</p></div>
-          <div className="text-right"><p className="text-xs text-[var(--color-text-muted)]">Imprimé le</p><p className="text-sm font-medium">{new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div>
-        </div>
-        <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-warm-50 rounded-[var(--radius-md)]">
-          <div><p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide">Événement</p><p className="font-semibold mt-0.5">{event.name}</p></div>
-          <div><p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide">Date</p><p className="font-semibold mt-0.5">{formatDate(event.date)}</p></div>
-          <div><p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide">Lieu</p><p className="font-semibold mt-0.5">{event.venue || '—'}</p></div>
-        </div>
+    <BonShell titre="Bon d'écart" onClose={onClose}>
+      <BonEntete
+        sousTitre="Bon d'écart — bilan des retours"
+        lignes={[
+          { label: 'Événement', valeur: event.name },
+          { label: 'Date',      valeur: formatDate(event.date) },
+          { label: 'Lieu',      valeur: event.venue },
+        ]}
+      />
 
-        {byCategory.map(({ cat, items }) => (
-          <div key={cat?.id ?? 'x'} className="mb-4">
-            <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-1">{cat?.name ?? '—'}</p>
-            <table className="w-full text-sm border border-[var(--color-border)] rounded overflow-hidden">
-              <thead>
-                <tr className="bg-warm-50 text-[var(--color-text-muted)] text-xs">
-                  <th className="px-3 py-2 text-left">Article</th>
-                  <th className="px-3 py-2 text-right">Prélevé</th>
-                  <th className="px-3 py-2 text-right">Retourné</th>
-                  <th className="px-3 py-2 text-right">Écart</th>
-                  <th className="px-3 py-2 text-right">Val. écart</th>
+      {!hasEcarts ? (
+        <div className="py-10 text-center print-groupe">
+          <CheckCircle2 size={28} className="mx-auto mb-2 text-green-600" />
+          <p className="font-semibold text-green-700">Aucun écart constaté.</p>
+          <p className="text-sm text-[var(--color-text-muted)] mt-1">
+            {aggregated.length} référence{aggregated.length > 1 ? 's' : ''} prélevée{aggregated.length > 1 ? 's' : ''}, {aggregated.length > 1 ? 'toutes retournées' : 'retournée'} intégralement.
+          </p>
+        </div>
+      ) : (
+        <div className="mb-6">
+          <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide mb-2">Articles en écart</p>
+          <table className="w-full text-sm border border-[var(--color-border)] rounded overflow-hidden">
+            <thead>
+              <tr className="bg-warm-50 text-[var(--color-text-muted)] text-xs uppercase tracking-wide">
+                <th className="px-2 py-2 text-left">Article</th>
+                <th className="px-2 py-2 text-right whitespace-nowrap">Pris → Rendu</th>
+                <th className="px-2 py-2 text-right">Écart</th>
+                <th className="px-2 py-2 text-right">Valeur</th>
+                <th className="px-2 py-2 text-left">Motif</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ecarts.map(({ cat, items }) => (
+                <Fragment key={cat?.id ?? 'x'}>
+                  <LigneFamille titre={cat?.name ?? 'Sans famille'} colonnes={5} />
+                  {items.map(({ article, withdrawn, returned, ecart, motif }) => (
+                    <tr key={article.id} className="border-t border-[var(--color-border)] bg-red-50/50">
+                      <td className="px-2 py-1.5 font-medium">{article.name}</td>
+                      <td className="px-2 py-1.5 text-right text-[var(--color-text-muted)] whitespace-nowrap">
+                        {formatQty(withdrawn)} → {formatQty(returned)}
+                      </td>
+                      <td className="px-2 py-1.5 text-right font-semibold text-red-600 whitespace-nowrap">
+                        −{formatQty(ecart)} <span className="font-normal">{article.units?.abbreviation}</span>
+                      </td>
+                      <td className="px-2 py-1.5 text-right font-medium text-red-600 whitespace-nowrap">
+                        {formatMAD(ecart * Number(article.average_cost ?? 0))}
+                      </td>
+                      <td className="px-2 py-1.5 text-xs text-[var(--color-text-muted)]">{motif || '—'}</td>
+                    </tr>
+                  ))}
+                </Fragment>
+              ))}
+
+              {/* La ligne de clôture : ce qui n'est pas imprimé est compté. */}
+              {conformes > 0 && (
+                <tr className="border-t border-[var(--color-border)] bg-green-50/60">
+                  <td colSpan={5} className="px-2 py-2 text-xs text-green-800">
+                    ✓ {conformes} autre{conformes > 1 ? 's' : ''} référence{conformes > 1 ? 's' : ''} retournée{conformes > 1 ? 's' : ''} intégralement.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {items.map(({ article, withdrawn, returned, ecart }) => (
-                  <tr key={article.id} className={`border-t border-[var(--color-border)] ${ecart > 0 ? 'bg-red-50/40' : ''}`}>
-                    <td className="px-3 py-2 font-medium">{article.name}</td>
-                    <td className="px-3 py-2 text-right">{formatQty(withdrawn)} {article.units?.abbreviation}</td>
-                    <td className="px-3 py-2 text-right">{formatQty(returned)} {article.units?.abbreviation}</td>
-                    <td className={`px-3 py-2 text-right font-semibold ${ecart > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {ecart > 0 ? `−${formatQty(ecart)}` : '✓'} {ecart > 0 ? article.units?.abbreviation : ''}
-                    </td>
-                    <td className={`px-3 py-2 text-right ${ecart > 0 ? 'text-red-600 font-medium' : 'text-[var(--color-text-muted)]'}`}>
-                      {ecart > 0 ? formatMAD(ecart * (article.last_purchase_price ?? 0)) : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ))}
+              )}
+            </tbody>
+          </table>
 
-        <div className="flex justify-end mt-4">
-          <div className={`px-6 py-3 rounded-[var(--radius-md)] ${hasEcarts ? 'bg-red-600' : 'bg-green-600'} text-white`}>
-            <span className="text-sm opacity-75">{hasEcarts ? 'Valeur totale des écarts' : 'Aucun écart constaté'}</span>
-            {hasEcarts && <span className="font-display text-xl font-bold ml-4">{formatMAD(totalEcartValue)}</span>}
+          <div className="flex flex-wrap justify-end gap-3 mt-4 print-groupe">
+            <div className="px-5 py-3 rounded-[var(--radius-md)] bg-red-600 text-white">
+              <span className="text-sm opacity-75">Écart (retournables)</span>
+              <span className="font-display text-lg font-bold ml-3">{formatMAD(totalEcart)}</span>
+            </div>
+            {totalConsomme > 0 && (
+              <div className="px-5 py-3 rounded-[var(--radius-md)] bg-warm-100 text-[var(--color-text)] border border-[var(--color-border)]">
+                <span className="text-sm text-[var(--color-text-muted)]">Consommé (consommables)</span>
+                <span className="font-display text-lg font-bold ml-3">{formatMAD(totalConsomme)}</span>
+              </div>
+            )}
           </div>
         </div>
+      )}
 
-        <div className="mt-8 pt-6 border-t border-[var(--color-border)]">
-          <p className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide mb-4">Signatures</p>
-          <div className="grid grid-cols-2 gap-8">
-            {responsibles.slice(0, 4).map((r) => (
-              <div key={r.id}><p className="text-sm font-medium">{r.name}</p><p className="text-xs text-[var(--color-text-muted)] mb-6">{r.role_label}</p><div className="border-b border-[var(--color-border-dark)] mt-8" /><p className="text-xs text-[var(--color-text-faint)] mt-1">Signature</p></div>
-            ))}
-            <div><p className="text-sm font-medium">Responsable dépôt</p><p className="text-xs text-[var(--color-text-muted)] mb-6">Epicure</p><div className="border-b border-[var(--color-border-dark)] mt-8" /><p className="text-xs text-[var(--color-text-faint)] mt-1">Signature</p></div>
-          </div>
-        </div>
-      </div>
-    </div>
+      <BonSignatures responsibles={responsibles} />
+    </BonShell>
   );
 };
 
@@ -381,6 +446,17 @@ const WithdrawalModal = ({ open, onClose, onSave, stock }) => {
 
 // ─────────────────────────────────────────────────────────────
 // SECTION RETOURS
+//
+// LA VALORISATION PASSE AU COÛT MOYEN. La migration 027 avait tranché avec une
+// mesure — le dernier prix d'achat surévaluait le dépôt de 24 % — et cet écran
+// ne l'avait pas suivie. Le même événement affichait donc un montant ici et un
+// autre dans `v_evenements`, que lit désormais l'onglet Historique. Un écart,
+// c'est du stock qui sort : il vaut ce que le dépôt dit qu'il vaut.
+//
+// LE MOTIF EST MODIFIABLE APRÈS CLÔTURE, ET LUI SEUL. Les quantités passent en
+// lecture seule à la clôture et y restent : elles ont produit des mouvements de
+// stock, les rouvrir demanderait de rejouer le journal. Le motif n'a produit
+// aucun mouvement — c'est une étiquette, elle se corrige.
 // ─────────────────────────────────────────────────────────────
 const RetourSection = ({ event, withdrawals, returns, onValidated, isClosed }) => {
   const { user } = useAuth();
@@ -408,34 +484,81 @@ const RetourSection = ({ event, withdrawals, returns, onValidated, isClosed }) =
     return map;
   }, [returns]);
 
-  // État local des quantités retournées (éditable)
-  const [returnQtys, setReturnQtys] = useState({});
-  const [validating, setValidating] = useState(false);
+  const [returnQtys,  setReturnQtys]  = useState({});
+  const [motifs,      setMotifs]      = useState([]);
+  const [motifChoisi, setMotifChoisi] = useState({});   // article_id → motif_id
+  const [enregistrement, setEnregistrement] = useState(null); // article_id en cours
+  const [validating,  setValidating]  = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [showBon, setShowBon] = useState(false);
+  const [showBon,     setShowBon]     = useState(false);
 
-  // Init/reset des quantités à partir de ce qui est déjà enregistré ou = prélevé par défaut
+  // Le référentiel, et les motifs déjà posés. Les deux en parallèle : ils ne
+  // dépendent pas l'un de l'autre.
+  useEffect(() => {
+    let vivant = true;
+    Promise.all([fetchMotifs(true), fetchEcartsArticles(event.id)])
+      .then(([refs, lignes]) => {
+        if (!vivant) return;
+        setMotifs(refs);
+        const deja = {};
+        lignes.forEach((l) => { if (l.motif_id) deja[l.article_id] = l.motif_id; });
+        setMotifChoisi(deja);
+      })
+      .catch(() => { /* l'écran reste utilisable sans motif */ });
+    return () => { vivant = false; };
+  }, [event.id]);
+
+  // Init/reset des quantités : ce qui est enregistré, ou tout retourné par défaut
   useEffect(() => {
     const init = {};
     Object.entries(withdrawnMap).forEach(([id, { qty }]) => {
       init[id] = isClosed
         ? String(returnedMap[id] ?? 0)
-        : String(returnedMap[id] ?? qty); // par défaut = tout retourné
+        : String(returnedMap[id] ?? qty);
     });
     setReturnQtys(init);
   }, [withdrawnMap, returnedMap, isClosed]);
+
+  const nomMotif = useCallback(
+    (id) => motifs.find((m) => m.id === id)?.name ?? null,
+    [motifs]
+  );
 
   const rows = useMemo(() =>
     Object.entries(withdrawnMap).map(([id, { article, qty: withdrawn }]) => {
       const returned = parseFloat(returnQtys[id] ?? withdrawn) || 0;
       const ecart = Math.max(0, withdrawn - returned);
-      return { article, withdrawn, returned, ecart };
+      return {
+        article, withdrawn, returned, ecart,
+        motifId: motifChoisi[id] ?? '',
+        motif:   nomMotif(motifChoisi[id]),
+      };
     }).sort((a, b) => (a.article?.categories?.sort_order ?? 99) - (b.article?.categories?.sort_order ?? 99)),
-    [withdrawnMap, returnQtys]
+    [withdrawnMap, returnQtys, motifChoisi, nomMotif]
   );
 
-  const totalEcartValue = rows.reduce((s, r) => s + r.ecart * (r.article?.last_purchase_price ?? 0), 0);
+  const valeurEcart = (r) => r.ecart * Number(r.article?.average_cost ?? 0);
+  const totalEcartValue = rows.reduce((s, r) => s + valeurEcart(r), 0);
   const hasEcarts = rows.some((r) => r.ecart > 0);
+  const sansMotif = rows.filter((r) => r.ecart > 0 && !r.motifId).length;
+
+  // Après clôture : chaque changement part immédiatement en base par sa RPC.
+  // Pas de bouton « enregistrer » — il n'y a qu'un champ, et un bouton
+  // laisserait croire qu'on peut aussi corriger le reste de la ligne.
+  const changerMotifClos = async (articleId, motifId) => {
+    const avant = motifChoisi[articleId] ?? '';
+    setMotifChoisi((p) => ({ ...p, [articleId]: motifId }));
+    setEnregistrement(articleId);
+    try {
+      await corrigerMotifEcart({ eventId: event.id, articleId, motifId }, user.id);
+      toast.success('Motif enregistré');
+    } catch (e) {
+      setMotifChoisi((p) => ({ ...p, [articleId]: avant }));  // on revient à l'affiché
+      toast.error(e.message || 'Erreur');
+    } finally {
+      setEnregistrement(null);
+    }
+  };
 
   const handleValidate = async () => {
     setValidating(true);
@@ -444,6 +567,7 @@ const RetourSection = ({ event, withdrawals, returns, onValidated, isClosed }) =
         article_id:   r.article.id,
         returned_qty: r.returned,
         ecart:        r.ecart,
+        motif_id:     r.ecart > 0 ? (r.motifId || null) : null,
       }));
       await validateEventReturns(event.id, payload, user.id);
       toast.success('Retours validés — événement clôturé !');
@@ -458,7 +582,7 @@ const RetourSection = ({ event, withdrawals, returns, onValidated, isClosed }) =
 
   if (showBon) {
     return (
-      <BonRetour
+      <BonEcart
         event={event}
         responsibles={event.event_responsibles ?? []}
         aggregated={rows}
@@ -473,15 +597,20 @@ const RetourSection = ({ event, withdrawals, returns, onValidated, isClosed }) =
 
   return (
     <div>
-      {/* Récap écarts */}
       {hasEcarts && (
-        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-[var(--radius-md)] mb-4 text-sm text-red-700">
-          <AlertTriangle size={16} className="flex-shrink-0" />
-          <span>Écart total estimé : <strong>{formatMAD(totalEcartValue)}</strong></span>
+        <div className="flex items-start gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-[var(--radius-md)] mb-4 text-sm text-red-700">
+          <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+          <div>
+            <p>Écart total : <strong>{formatMAD(totalEcartValue)}</strong></p>
+            {sansMotif > 0 && (
+              <p className="text-xs mt-0.5 text-red-600/80">
+                {sansMotif} article{sansMotif > 1 ? 's' : ''} sans motif — facultatif, mais c'est ce qui rend l'écart lisible plus tard.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Tableau retours */}
       <div className="overflow-x-auto mb-4">
         <table className="w-full text-sm">
           <thead>
@@ -491,10 +620,11 @@ const RetourSection = ({ event, withdrawals, returns, onValidated, isClosed }) =
               <th className="px-3 py-2 text-right w-32">Retourné</th>
               <th className="px-3 py-2 text-right">Écart</th>
               <th className="px-3 py-2 text-right hidden md:table-cell">Val. écart</th>
+              <th className="px-3 py-2 text-left w-40">Motif</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ article, withdrawn, returned, ecart }) => (
+            {rows.map(({ article, withdrawn, returned, ecart, motifId }) => (
               <tr key={article.id} className={`border-b border-[var(--color-border)] last:border-0 ${ecart > 0 ? 'bg-red-50/30' : ''}`}>
                 <td className="px-3 py-2.5">
                   <p className="font-medium text-[var(--color-text)]">{article.name}</p>
@@ -523,9 +653,30 @@ const RetourSection = ({ event, withdrawals, returns, onValidated, isClosed }) =
                 </td>
                 <td className="px-3 py-2.5 text-right hidden md:table-cell">
                   {ecart > 0
-                    ? <span className="text-red-600 font-medium">{formatMAD(ecart * (article.last_purchase_price ?? 0))}</span>
+                    ? <span className="text-red-600 font-medium">{formatMAD(ecart * Number(article.average_cost ?? 0))}</span>
                     : <span className="text-[var(--color-text-faint)]">—</span>
                   }
+                </td>
+                <td className="px-3 py-2.5">
+                  {/* La colonne n'apparaît que là où il y a quelque chose à
+                      expliquer. Une liste déroulante sur une ligne conforme
+                      inviterait à inventer une cause à un fait qui n'a pas eu
+                      lieu — et la RPC la refuserait. */}
+                  {ecart > 0 ? (
+                    <select
+                      value={motifId}
+                      disabled={enregistrement === article.id || (isClosed && !canManage)}
+                      onChange={(e) => (isClosed
+                        ? changerMotifClos(article.id, e.target.value)
+                        : setMotifChoisi((p) => ({ ...p, [article.id]: e.target.value })))}
+                      className="w-full h-11 px-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-white text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+                    >
+                      <option value="">— Motif —</option>
+                      {motifs.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                  ) : (
+                    <span className="text-[var(--color-text-faint)] text-xs">—</span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -533,10 +684,15 @@ const RetourSection = ({ event, withdrawals, returns, onValidated, isClosed }) =
         </table>
       </div>
 
-      {/* Actions */}
+      {isClosed && hasEcarts && (
+        <p className="text-xs text-[var(--color-text-faint)] mb-3">
+          Événement clôturé : les quantités sont figées. Seul le motif reste corrigeable, et chaque changement est enregistré immédiatement.
+        </p>
+      )}
+
       <div className="flex items-center justify-between flex-wrap gap-3">
         <Button variant="outline" size="sm" onClick={() => setShowBon(true)} className="gap-1">
-          <Printer size={14} /> Bon de retour
+          <Printer size={14} /> Bon d'écart
         </Button>
         {!isClosed && canManage && (
           <Button onClick={() => setConfirmOpen(true)} className="gap-1">
@@ -550,7 +706,7 @@ const RetourSection = ({ event, withdrawals, returns, onValidated, isClosed }) =
         onClose={() => setConfirmOpen(false)}
         onConfirm={handleValidate}
         title="Valider les retours ?"
-        message={`Les mouvements de stock seront créés${hasEcarts ? ` et ${formatMAD(totalEcartValue)} de pertes seront enregistrés` : ''}. L'événement sera clôturé définitivement.`}
+        message={`Les mouvements de stock seront créés${hasEcarts ? ` et ${formatMAD(totalEcartValue)} d'écarts seront enregistrés` : ''}. L'événement sera clôturé : les quantités ne seront plus modifiables, seuls les motifs le resteront.`}
         confirmLabel="Valider et clôturer"
         loading={validating}
       />

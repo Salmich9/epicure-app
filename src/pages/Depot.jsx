@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Image, TrendingDown, Search, X, ChevronRight, Plus, Pencil, AlertTriangle } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Image, TrendingDown, Search, X, ChevronRight, Plus, Pencil, AlertTriangle, ShoppingCart } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import usePermission from '../hooks/usePermission';
@@ -11,6 +12,7 @@ import { fetchArticles, deactivateArticle } from '../data/articles';
 import { fetchSuppliers } from '../data/purchases';
 import PurchaseModal from '../components/PurchaseModal';
 import ArticleFormModal from '../components/ArticleFormModal';
+import BonCommande from '../components/BonCommande';
 import { PageLoader } from '../components/ui/Spinner';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
@@ -18,6 +20,24 @@ import ConfirmDialog from '../components/ui/ConfirmDialog';
 import CollapsibleSection from '../components/ui/CollapsibleSection';
 import useOpenSections from '../hooks/useOpenSections';
 import { formatMAD, formatQty, formatDateTime } from '../lib/utils';
+
+// ── Lightbox : tap sur une vignette → plein écran, tap n'importe où = ferme ──
+const ImageLightbox = ({ src, alt, onClose }) => {
+  if (!src) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+      onClick={onClose}
+    >
+      <img
+        src={src}
+        alt={alt}
+        className="max-w-[90vw] max-h-[90vh] rounded-lg object-contain shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+};
 
 const TYPE_LABEL = {
   inventaire_initial: 'Inventaire initial',
@@ -232,6 +252,23 @@ const Depot = () => {
   const [ficheArticle, setFicheArticle] = useState(null);
   const [ficheOuverte, setFicheOuverte] = useState(false);
   const [aArchiver, setAArchiver] = useState(null);
+  const [commandeOuverte, setCommandeOuverte] = useState(false);
+  const [zoomedImg, setZoomedImg] = useState(null);
+
+  // Le Dashboard n'est qu'une porte : sa carte « Articles en alerte » renvoie
+  // ici avec ce drapeau. Une implémentation, deux entrées — et `state` plutôt
+  // qu'un paramètre d'URL, pour que rien ne reste dans la barre d'adresse ni
+  // ne rouvre l'écran à un rafraîchissement.
+  const location = useLocation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (location.state?.commande) {
+      setCommandeOuverte(true);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location, navigate]);
+
+  const nbAlertes = useMemo(() => lignes.filter((l) => l.en_alerte).length, [lignes]);
 
   // Une seule fonction de chargement, appelée au montage ET après chaque
   // écriture. L'ancienne version avait un `useEffect([])` sans rechargement :
@@ -310,6 +347,10 @@ const Depot = () => {
 
   if (loading) return <PageLoader />;
 
+  if (commandeOuverte) {
+    return <BonCommande onClose={() => { setCommandeOuverte(false); load(); }} />;
+  }
+
   return (
     <div className="p-4 lg:p-6 max-w-5xl mx-auto">
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
@@ -318,11 +359,18 @@ const Depot = () => {
           <p className="text-sm text-[var(--color-text-muted)] mt-1">
             {lignes.length} articles · stock en temps réel
           </p>
-          {canBuy && (
-            <Button className="gap-2 mt-3" onClick={() => setAchatOuvert(true)}>
-              <Plus size={16} /> Nouvel achat
-            </Button>
-          )}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {canBuy && (
+              <Button className="gap-2" onClick={() => setAchatOuvert(true)}>
+                <Plus size={16} /> Nouvel achat
+              </Button>
+            )}
+            {canBuy && nbAlertes > 0 && (
+              <Button variant="outline" className="gap-2" onClick={() => setCommandeOuverte(true)}>
+                <ShoppingCart size={16} /> Commander ({nbAlertes})
+              </Button>
+            )}
+          </div>
         </div>
         <Entete evo={evo} couverture={couverture} />
       </div>
@@ -398,7 +446,12 @@ const Depot = () => {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             {l.photo_url ? (
-                              <img src={l.photo_url} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                              <img
+                                src={l.photo_url}
+                                alt=""
+                                className="w-8 h-8 rounded object-cover flex-shrink-0 cursor-zoom-in"
+                                onClick={(e) => { e.stopPropagation(); setZoomedImg({ src: l.photo_url, alt: l.article }); }}
+                              />
                             ) : (
                               <div className="w-8 h-8 rounded bg-warm-100 flex items-center justify-center flex-shrink-0">
                                 <Image size={12} className="text-[var(--color-text-faint)]" />
@@ -461,6 +514,12 @@ const Depot = () => {
         onClose={() => { setFicheOuverte(false); setFicheArticle(null); }}
         onCreated={() => { setSelected(null); load(); }}
         initial={ficheArticle}
+      />
+
+      <ImageLightbox
+        src={zoomedImg?.src}
+        alt={zoomedImg?.alt}
+        onClose={() => setZoomedImg(null)}
       />
 
       <ConfirmDialog

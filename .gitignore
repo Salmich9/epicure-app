@@ -5,3 +5,6 @@ dist
 
 # Valeurs réelles : jamais dans le dépôt. Voir .env.example.
 .env
+
+# Configuration locale de Claude Code (serveur de dev) : pas du projet.
+.claude/
