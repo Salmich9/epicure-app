@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { verifyPin } from '../data/auth';
+import { verifyPin, sessionValide, fermerSession } from '../data/auth';
+import { JETON_KEY, lireJeton } from '../lib/supabase';
 import { fetchAllPermissions, hasPermission } from '../data/permissions';
 
 const SESSION_KEY = 'epicure_session';
@@ -11,33 +12,44 @@ export const AuthProvider = ({ children }) => {
   const [permissions, setPermissions] = useState([]);            // toutes les permissions
   const [loading, setLoading]         = useState(true);          // init
 
-  // Restaure la session depuis localStorage
+  const oublier = () => {
+    setUser(null);
+    setPermissions([]);
+    try { localStorage.removeItem(SESSION_KEY); localStorage.removeItem(JETON_KEY); } catch { /* stockage indisponible */ }
+  };
+
+  // Restaure la session depuis localStorage, si le serveur la reconnaît encore.
+  // Sans jeton (ancienne connexion) ou jeton expiré : retour au PIN.
   useEffect(() => {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (raw) {
-      try {
-        const session = JSON.parse(raw);
-        setUser(session.user);
-        setPermissions(session.permissions ?? []);
-      } catch { localStorage.removeItem(SESSION_KEY); }
-    }
+    let raw = null;
+    try { raw = localStorage.getItem(SESSION_KEY); } catch { /* stockage indisponible */ }
+    if (!raw || !lireJeton()) { oublier(); setLoading(false); return; }
+    try {
+      const session = JSON.parse(raw);
+      setUser(session.user);
+      setPermissions(session.permissions ?? []);
+    } catch { oublier(); setLoading(false); return; }
     setLoading(false);
+    // Vérification en ligne ; hors connexion on garde la session (file d'attente hors-ligne)
+    sessionValide().then((ok) => { if (!ok) oublier(); }).catch(() => {});
   }, []);
 
   const login = useCallback(async (pin) => {
     const userData = await verifyPin(pin);
+    if (userData?.erreur === 'bloque') throw new Error('Trop d\'essais : réessayez dans 15 minutes.');
     if (!userData) throw new Error('PIN incorrect');
+    const { session: jeton, ...infos } = userData;
+    try { localStorage.setItem(JETON_KEY, jeton || ''); } catch { /* stockage indisponible */ }
     const perms = await fetchAllPermissions();
-    setUser(userData);
+    setUser(infos);
     setPermissions(perms);
-    localStorage.setItem(SESSION_KEY, JSON.stringify({ user: userData, permissions: perms }));
-    return userData;
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ user: infos, permissions: perms }));
+    return infos;
   }, []);
 
   const logout = useCallback(() => {
-    setUser(null);
-    setPermissions([]);
-    localStorage.removeItem(SESSION_KEY);
+    fermerSession().catch(() => {});
+    oublier();
   }, []);
 
   // Vérifie une permission pour l'utilisateur courant (lit depuis les perms en mémoire)

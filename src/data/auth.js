@@ -6,3 +6,14 @@ export const verifyPin = async (pin) => {
   if (error) throw error;
   return data; // null si PIN invalide
 };
+
+// La session portée par ce téléphone est-elle encore valable côté serveur ?
+export const sessionValide = async () => {
+  const { data, error } = await supabase.rpc('depot_session_ok');
+  if (error) throw error;
+  return data === true;
+};
+
+export const fermerSession = async () => {
+  await supabase.rpc('depot_deconnexion');
+};

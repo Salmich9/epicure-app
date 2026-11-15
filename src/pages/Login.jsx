@@ -29,7 +29,7 @@ const Login = () => {
         // Le depot est l ecran de travail : c est la qu on arrive.
         navigate('/depot', { replace: true });
       } catch (e) {
-        setError('PIN incorrect. Réessayez.');
+        setError(/Trop d/.test(e.message) ? e.message : 'PIN incorrect. Réessayez.');
         setPin('');
       } finally {
         setLoading(false);
