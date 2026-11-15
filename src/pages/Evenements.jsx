@@ -388,6 +388,11 @@ const WithdrawalModal = ({ open, onClose, onSave, stock }) => {
                       <p className="text-xs text-[var(--color-text-muted)]">
                         Dispo : <span className="font-medium">{formatQty(r.available)} {r.article.units?.abbreviation}</span>
                       </p>
+                      {hasQty && (
+                        <p className="text-xs text-[var(--color-primary)] font-medium">
+                          Reste : {formatQty(r.available - parseFloat(r.qty || 0))} {r.article.units?.abbreviation}
+                        </p>
+                      )}
                     </div>
                     {/* Input quantité */}
                     <input
