@@ -247,6 +247,7 @@ const Depot = () => {
 
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('');
+  const [filterAlerte, setFilterAlerte] = useState(false);
   const [selected, setSelected] = useState(null);
   const [achatOuvert, setAchatOuvert] = useState(false);
   const [ficheArticle, setFicheArticle] = useState(null);
@@ -264,6 +265,9 @@ const Depot = () => {
   useEffect(() => {
     if (location.state?.commande) {
       setCommandeOuverte(true);
+      navigate(location.pathname, { replace: true, state: null });
+    } else if (location.state?.filterAlerte) {
+      setFilterAlerte(true);
       navigate(location.pathname, { replace: true, state: null });
     }
   }, [location, navigate]);
@@ -311,6 +315,7 @@ const Depot = () => {
       .filter((l) => {
         if (q && !l.article.toLowerCase().includes(q)) return false;
         if (filterCat && l.category_id !== filterCat) return false;
+        if (filterAlerte && !l.en_alerte) return false;
         return true;
       })
       .forEach((l) => {
@@ -323,14 +328,14 @@ const Depot = () => {
         map[k].items.push(l);
       });
     return Object.values(map).sort((a, b) => a.ordre - b.ordre);
-  }, [lignes, search, filterCat]);
+  }, [lignes, search, filterCat, filterAlerte]);
 
   const { isOpen, toggle, openAll, closeAll, nbOuvertes } = useOpenSections('depot');
 
   // UNE RECHERCHE ACTIVE FORCE L'OUVERTURE, sans ecraser l'etat memorise.
   // Sans ca la recherche parait cassee : elle trouve, mais dans des sections
   // repliees. Recherche videe, tout revient a l'etat choisi.
-  const forceOpen = search.trim().length > 0 || Boolean(filterCat);
+  const forceOpen = search.trim().length > 0 || Boolean(filterCat) || filterAlerte;
 
   const archiver = async () => {
     if (!aArchiver) return;
@@ -394,6 +399,24 @@ const Depot = () => {
           {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>
+
+      {/* Bandeau filtre alertes actif — entré via Dashboard KPI « Articles en alerte ».
+          Visible uniquement quand filterAlerte=true ; le ✕ efface le filtre. */}
+      {filterAlerte && (
+        <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-[var(--radius-md)] px-4 py-2.5 mb-3">
+          <AlertTriangle size={15} className="text-accent flex-shrink-0" />
+          <span className="flex-1 text-sm font-medium text-accent">Articles en alerte uniquement</span>
+          <span className="bg-accent text-white text-xs font-semibold rounded-full px-2 py-0.5">{nbAlertes}</span>
+          <button
+            type="button"
+            onClick={() => setFilterAlerte(false)}
+            className="ml-1 min-h-[32px] min-w-[32px] flex items-center justify-center rounded-full bg-orange-100 text-accent hover:bg-orange-200"
+            aria-label="Effacer le filtre alertes"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Compagnon du « tout replié » : sans lui, ouvrir dix-neuf familles
           demande dix-neuf gestes. Masqué pendant une recherche, qui force

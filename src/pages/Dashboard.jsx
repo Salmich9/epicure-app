@@ -165,7 +165,7 @@ const Dashboard = () => {
           value={stats?.articles_alerte ?? 0}
           sub="stock sous le seuil"
           color={stats?.articles_alerte > 0 ? 'bg-orange-500' : 'bg-green-500'}
-          onClick={() => navigate('/depot')}
+          onClick={() => navigate('/depot', { state: { filterAlerte: true } })}
         />
         <KpiCard
           icon={TrendingDown}
